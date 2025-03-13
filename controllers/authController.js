@@ -3,6 +3,7 @@ const AppError = require('../utils/appError');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
+const { handleValidatorsErrors } = require('../utils/handleValidatorsErrors');
 const { promisify } = require('util');
 const {
   user_login_schema,
@@ -98,9 +99,7 @@ exports.signup = catchAsync(async (req, res, next) => {
   const { error } = user_signup_scehma.validate(req.body);
 
   if (error) {
-    return next(
-      new AppError(error.details.map((err) => err.message).join(', '), 400)
-    );
+    handleValidatorsErrors(error, next);
   }
 
   const {
@@ -139,9 +138,7 @@ exports.login = catchAsync(async (req, res, next) => {
   const { error } = user_login_schema.validate(req.body);
 
   if (error) {
-    return next(
-      new AppError(error.details.map((err) => err.message).join(', '), 400)
-    );
+    handleValidatorsErrors(error, next);
   }
 
   const { email, password } = req.body;
@@ -184,9 +181,7 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
   const { error } = forgot_password_schema.validate(req.body);
 
   if (error) {
-    return next(
-      new AppError(error.details.map((err) => err.message).join(', '), 400)
-    );
+    handleValidatorsErrors(error, next);
   }
 
   const { email } = req.body;
@@ -230,9 +225,7 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
   const { error } = reset_password_schema.validate(req.body);
 
   if (error) {
-    return next(
-      new AppError(error.details.map((err) => err.message).join(', '), 400)
-    );
+    handleValidatorsErrors(error, next);
   }
 
   const { resetCode, newPassword, email } = req.body;
@@ -325,9 +318,7 @@ exports.verifyEmail = catchAsync(async (req, res, next) => {
   const { error } = email_signup_verification.validate(req.body);
 
   if (error) {
-    return next(
-      new AppError(error.details.map((err) => err.message).join(', '), 400)
-    );
+    handleValidatorsErrors(error, next);
   }
 
   const { email_verification_code } = req.body;

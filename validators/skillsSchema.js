@@ -1,9 +1,15 @@
 const Joi = require('joi');
+const { skillSchema } = require('./skillSchemaDefinition');
 
 const skill_add_update = Joi.object({
   name: Joi.string().required().messages({
-    'any.required': 'YOu have to provide a name for the skill',
+    'string.base': 'Skill name must be string',
+    'any.required': 'You have to provide a name for the skill',
   }),
 }).unknown(false);
 
-module.exports = { skill_add_update };
+const user_add_or_update_skill_validator = Joi.object({
+  skillName: skillSchema,
+}).unknown(false);
+
+module.exports = { skill_add_update, user_add_or_update_skill_validator };

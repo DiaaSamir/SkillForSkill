@@ -5,6 +5,7 @@ const factory = require('../controllers/handlerFactory');
 const { hashCode } = require('../utils/hashingAndReturningCodes');
 const { compareCode } = require('../utils/compareHashedCodes');
 const { hashPassword } = require('../utils/hashPasswords');
+const { handleValidatorsErrors } = require('../utils/handleValidatorsErrors');
 const { compareHashedPasswords } = require('../utils/compareHashedPasswords');
 const {
   email_reset_verification_request,
@@ -74,9 +75,7 @@ exports.updateMyEmailRequest = catchAsync(async (req, res, next) => {
   const { error } = email_reset_verification_request.validate(req.body);
 
   if (error) {
-    return next(
-      new AppError(error.details.map((err) => err.message).join(', '), 400)
-    );
+    handleValidatorsErrors(error, next);
   }
 
   const userId = req.user.id;
@@ -136,9 +135,7 @@ exports.updateMyEmail = catchAsync(async (req, res, next) => {
   const { error } = email_reset_verification.validate(req.body);
 
   if (error) {
-    return next(
-      new AppError(error.details.map((err) => err.message).join(', '), 400)
-    );
+    handleValidatorsErrors(error, next);
   }
 
   const userId = req.user.id;
@@ -183,9 +180,7 @@ exports.updateMyPassword = catchAsync(async (req, res, next) => {
   const { error } = update_password_schema.validate(req.body);
 
   if (error) {
-    return next(
-      new AppError(error.details.map((err) => err.message).join(', '), 400)
-    );
+    handleValidatorsErrors(error, next);
   }
 
   const userId = req.user.id;
@@ -232,9 +227,7 @@ exports.updateMyFirstAndLastName = catchAsync(async (req, res, next) => {
   const { error } = update_first_and_last_name.validate(req.body);
 
   if (error) {
-    return next(
-      new AppError(error.details.map((err) => err.message).join(', '), 400)
-    );
+    handleValidatorsErrors(error, next);
   }
 
   const userId = req.user.id;

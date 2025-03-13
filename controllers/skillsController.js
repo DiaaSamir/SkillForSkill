@@ -2,6 +2,7 @@ const catchAsync = require('express-async-handler');
 const AppError = require('../utils/appError');
 const client = require('../db');
 const factory = require('./handlerFactory');
+const { handleValidatorsErrors } = require('../utils/handleValidatorsErrors');
 const {
   skill_add_update,
   user_add_or_update_skill_validator,
@@ -19,11 +20,20 @@ exports.createSkill = catchAsync(async (req, res, next) => {
   const { error } = skill_add_update.validate(req.body);
 
   if (error) {
-    return next(
-      new AppError(error.details.map((err) => err.message).join(', '), 400)
-    );
+    handleValidatorsErrors(error, next);
   }
   const { name } = req.body;
+
+  const skillQuery = await client.query(`SELECT * FROM skills WHERE name =$1`, [
+    name,
+  ]);
+
+  if (skillQuery.rows.length > 0) {
+    return next(
+      new AppError('This skill already exists! try another one', 400)
+    );
+  }
+
   const addSkillQuery = await client.query(
     `INSERT INTO skills (name) VALUES ($1) RETURNING name`,
     [name]
@@ -46,12 +56,7 @@ exports.updateSkill = catchAsync(async (req, res, next) => {
   const { error } = skill_add_update.validate(req.body);
 
   if (error) {
-    return next(
-      new AppError(
-        error.details.map((err) => err.message),
-        400
-      )
-    );
+    handleValidatorsErrors(error, next);
   }
 
   const skillId = req.params.id;
@@ -80,9 +85,7 @@ exports.updateSkillForUser = catchAsync(async (req, res, next) => {
   const { error } = user_add_or_update_skill_validator.validate(req.body);
 
   if (error) {
-    return next(
-      new AppError(error.details.map((err) => err.message).join(', '), 400)
-    );
+    handleValidatorsErrors(error, next);
   }
 
   const userId = req.params.id;
@@ -114,9 +117,7 @@ exports.addSkillForUser = catchAsync(async (req, res, next) => {
   const { error } = user_add_or_update_skill_validator.validate(req.body);
 
   if (error) {
-    return next(
-      new AppError(error.details.map((err) => err.message).join(', '), 400)
-    );
+    handleValidatorsErrors(error, next);
   }
 
   const userId = req.params.id;
@@ -149,7 +150,7 @@ exports.addSkillForUser = catchAsync(async (req, res, next) => {
     status: 'success',
     message: 'A new skill has been added successfully',
   });
-});//
+}); //
 
 exports.deleteSkillForUser = catchAsync(async (req, res, next) => {
   const userId = req.params.id;
@@ -167,9 +168,7 @@ exports.userAddSkill = catchAsync(async (req, res, next) => {
   const { error } = user_add_or_update_skill_validator.validate(req.body);
 
   if (error) {
-    return next(
-      new AppError(error.details.map((err) => err.message).join(', '), 400)
-    );
+    handleValidatorsErrors(error, next);
   }
   const { skillName } = req.body;
   const userId = req.user.id;
@@ -222,9 +221,7 @@ exports.userUpdateSkill = catchAsync(async (req, res, next) => {
   const { error } = user_add_or_update_skill_validator.validate(req.body);
 
   if (error) {
-    return next(
-      new AppError(error.details.map((err) => err.message).join(', '), 400)
-    );
+    handleValidatorsErrors(error, next);
   }
   const { skillName } = req.body;
 

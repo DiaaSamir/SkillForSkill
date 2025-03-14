@@ -12,4 +12,20 @@ router
     postsController.createPost
   );
 
+router
+  .route('/delete-my-post/:id')
+  .delete(
+    authController.protect,
+    authController.restrictTo('User', 'Admin'),
+    postsController.deleteMyPost
+  );
+
+router
+  .route('/update-my-post/:id')
+  .patch(
+    authController.protect,
+    authController.restrictTo('User', 'Admin'),
+    postsController.updateMyPost
+  );
+
 module.exports = router;

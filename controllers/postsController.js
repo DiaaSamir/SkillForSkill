@@ -184,8 +184,34 @@ exports.updateMyPost = catchAsync(async (req, res, next) => {
   });
 });
 
-// exports.getMyposts = catchAsync(async (req, res, next) => {
-//   const userId = req.user.id;
+exports.getMypost = catchAsync(async (req, res, next) => {
+  const userId = req.user.id;
+  const postId = req.params.id;
+  const postQuery = await client.query(
+    `SELECT 
+      posts.description,
+      posts.title,
+      posts.created_at,
+      users.first_name,
+      users.last_name,
+      user_skills.name AS user_skill,
+      required_skills.name AS required_skill
+    FROM posts 
+    JOIN skills AS user_skills ON posts.skill_id = user_skills.id 
+    JOIN skills AS required_skills ON posts.required_skill_id = required_skills.id
+    JOIN users ON posts.user_id = users.id 
+    WHERE posts.user_id = $1 AND posts.id = $2`,
+    [userId, postId]
+  );
 
-//   const postsQuery = await client.query(`SELECT `);
-// });
+  if (postQuery.rows.length === 0) {
+    return next(new AppError('No posts yet!', 404));
+  }
+
+  const post = postQuery.rows[0];
+
+  res.status(200).json({
+    status: 'success',
+    post,
+  });
+});

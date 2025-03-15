@@ -5,6 +5,14 @@ const postsController = require('../controllers/postsController');
 const router = express.Router();
 
 router
+  .route('/my-post/:id')
+  .get(
+    authController.protect,
+    authController.restrictTo('Admin', 'User'),
+    postsController.getMypost
+  );
+
+router
   .route('/add-post')
   .post(
     authController.protect,

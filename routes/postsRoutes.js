@@ -5,11 +5,19 @@ const postsController = require('../controllers/postsController');
 const router = express.Router();
 
 router
-  .route('/my-post/:id')
+  .route('/')
   .get(
     authController.protect,
     authController.restrictTo('Admin', 'User'),
-    postsController.getMypost
+    postsController.getAllPosts
+  );
+
+router
+  .route('/my-posts')
+  .get(
+    authController.protect,
+    authController.restrictTo('Admin', 'User'),
+    postsController.getAllMyPosts
   );
 
 router
@@ -18,6 +26,14 @@ router
     authController.protect,
     authController.restrictTo('User', 'Admin'),
     postsController.createPost
+  );
+
+router
+  .route('/my-post/:id')
+  .get(
+    authController.protect,
+    authController.restrictTo('Admin', 'User'),
+    postsController.getMypost
   );
 
 router
@@ -34,6 +50,14 @@ router
     authController.protect,
     authController.restrictTo('User', 'Admin'),
     postsController.updateMyPost
+  );
+
+router
+  .route('/:id')
+  .get(
+    authController.protect,
+    authController.restrictTo('User', 'Admin'),
+    postsController.getOnePost
   );
 
 module.exports = router;

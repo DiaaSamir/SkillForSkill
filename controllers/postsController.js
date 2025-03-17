@@ -22,7 +22,7 @@ const checkIfTheUserPostedBefore = async (userId) => {
   return user.did_the_user_post === true;
 };
 
-//*********************************************************************************************** */
+//***************************************OPERATIONS FOR USERS******************************************************** */
 exports.createPost = catchAsync(async (req, res, next) => {
   const userId = req.user.id;
 
@@ -194,11 +194,11 @@ exports.getMypost = catchAsync(async (req, res, next) => {
       posts.created_at,
       users.first_name,
       users.last_name,
-      user_skills.name AS user_skill,
-      required_skills.name AS required_skill
+      user_skill.name AS user_skill,
+      required_skill.name AS required_skill
     FROM posts 
-    JOIN skills AS user_skills ON posts.skill_id = user_skills.id 
-    JOIN skills AS required_skills ON posts.required_skill_id = required_skills.id
+    JOIN skills AS user_skills ON posts.skill_id = user_skill.id 
+    JOIN skills AS required_skills ON posts.required_skill_id = required_skill.id
     JOIN users ON posts.user_id = users.id 
     WHERE posts.user_id = $1 AND posts.id = $2`,
     [userId, postId]
@@ -215,3 +215,98 @@ exports.getMypost = catchAsync(async (req, res, next) => {
     post,
   });
 });
+
+exports.getAllMyPosts = catchAsync(async (req, res, next) => {
+  const userId = req.user.id;
+
+  const postsQuery = await client.query(
+    `SELECT 
+    posts.description,
+    posts.title,
+    posts.created_at,
+    users.first_name,
+    users.last_name,
+    user_skill.name AS user_skill,
+    required_skill.name AS required_skill
+  FROM posts 
+  JOIN skills AS user_skill ON posts.skill_id = user_skill.id 
+  JOIN skills AS required_skill ON posts.required_skill_id = required_skill.id
+  JOIN users ON posts.user_id = users.id 
+  WHERE posts.user_id = $1`,
+    [userId]
+  );
+
+  if (postsQuery.rows.length === 0) {
+    return next(new AppError('No posts yet!', 404));
+  }
+
+  const posts = postsQuery.rows;
+
+  res.status(200).json({
+    status: 'success',
+    posts,
+  });
+});
+
+exports.getOnePost = catchAsync(async (req, res, next) => {
+  const postId = req.params.id;
+
+  const postQuery = await client.query(
+    `
+    SELECT
+      posts.description,
+      posts.title,
+      posts.created_at,
+      users.first_name,
+      users.last_name,
+      user_skill.name AS user_skill,
+      required_skill.name AS required_skill
+    FROM posts
+    JOIN skills AS user_skill ON posts.skill_id = user_skill.id
+    JOIN skills AS required_skill ON posts.required_skill_id = required_skill.id
+    JOIN users ON posts.user_id = users.id
+    WHERE posts.id = $1
+    `,
+    [postId]
+  );
+
+  if (postQuery.rows.length === 0) {
+    return next(new AppError('No posts found!', 404));
+  }
+
+  const post = postQuery.rows[0];
+
+  res.status(200).json({
+    status: 'success',
+    post,
+  });
+});
+
+exports.getAllPosts = catchAsync(async (req, res, next) => {
+  const postsQuery = await client.query(`
+    SELECT
+      posts.description,
+      posts.title,
+      posts.created_at,
+      users.first_name,
+      users.last_name,
+      user_skill.name AS user_skill,
+      required_skill.name AS required_skill
+    FROM posts
+    JOIN skills AS user_skill ON posts.skill_id = user_skill.id
+    JOIN skills AS required_skill ON posts.required_skill_id = required_skill.id
+    JOIN users ON posts.user_id = users.id
+    `);
+
+  if (postsQuery.rows.length === 0) {
+    return next(new AppError('No posts yet!', 404));
+  }
+
+  const posts = postsQuery.rows;
+
+  res.status(200).json({
+    status: 'success',
+    posts,
+  });
+});
+//******************************************OOERATIONS FOR ADMINS********************************************************************************/

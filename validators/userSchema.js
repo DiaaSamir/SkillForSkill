@@ -22,11 +22,6 @@ const user_signup_scehma = Joi.object({
     'any.required': 'Email is required!',
   }),
 
-  phone_number: Joi.string().length(11).messages({
-    'string.min': 'Your phone number must be at least 11 digits',
-    'string.max': 'Your phone number must be at most 11 digits',
-  }),
-
   password: Joi.string()
     .min(8) // At least 8 characters
     .max(30) // At most 30 characters

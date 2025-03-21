@@ -102,14 +102,7 @@ exports.signup = catchAsync(async (req, res, next) => {
     handleValidatorsErrors(error, next);
   }
 
-  const {
-    first_name,
-    last_name,
-    email,
-    password,
-    phone_number,
-    password_confirm,
-  } = req.body;
+  const { first_name, last_name, email, password, password_confirm } = req.body;
 
   if (password !== password_confirm) {
     return next(new AppError('Passwords are not the same', 400));
@@ -117,16 +110,8 @@ exports.signup = catchAsync(async (req, res, next) => {
   const hashedPassword = await hashPassword(password);
 
   const newUser = await client.query(
-    `INSERT INTO users (first_name, last_name, email, password, created_at, phone_number, role) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING first_name, last_name, email, phone_number, created_at`,
-    [
-      first_name,
-      last_name,
-      email,
-      hashedPassword,
-      new Date(),
-      phone_number,
-      'User',
-    ]
+    `INSERT INTO users (first_name, last_name, email, password, created_at, role) VALUES ($1, $2, $3, $4, $5, $6) RETURNING first_name, last_name, email, created_at`,
+    [first_name, last_name, email, hashedPassword, new Date(), 'User']
   );
 
   const user = newUser.rows[0];

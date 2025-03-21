@@ -4,7 +4,7 @@ const client = require('../db');
 const factory = require('./handlerFactory');
 const { handleValidatorsErrors } = require('../utils/handleValidatorsErrors');
 const {
-  skill_add_update,
+  skill_add_update_for_admins,
   user_add_or_update_skill_validator,
 } = require('../validators/skillsSchema');
 
@@ -17,7 +17,7 @@ exports.getAllSkills = factory.getAll('skills');
 exports.deleteSkill = factory.deleteOne('skills');
 
 exports.createSkill = catchAsync(async (req, res, next) => {
-  const { error } = skill_add_update.validate(req.body);
+  const { error } = skill_add_update_for_admins.validate(req.body);
 
   if (error) {
     handleValidatorsErrors(error, next);

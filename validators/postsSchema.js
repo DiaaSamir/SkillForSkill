@@ -40,4 +40,13 @@ const update_post = Joi.object({
   }),
 }).unknown(false);
 
-module.exports = { create_post, delete_post, update_post };
+const get_posts_with_specific_skills = Joi.object({
+  required_SkillName: skillSchema,
+}).unknown(false);
+
+module.exports = {
+  create_post,
+  delete_post,
+  update_post,
+  get_posts_with_specific_skills,
+};

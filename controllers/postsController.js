@@ -5,6 +5,7 @@ const {
   create_post,
   delete_post,
   update_post,
+  get_posts_with_specific_skills,
 } = require('../validators/postsSchema');
 const checkIfUserVerified = require('../utils/checkIfUserVerified');
 const client = require('../db');
@@ -283,7 +284,8 @@ exports.getOnePost = catchAsync(async (req, res, next) => {
 });
 
 exports.getAllPosts = catchAsync(async (req, res, next) => {
-  const postsQuery = await client.query(`
+  const postsQuery = await client.query(
+    `
     SELECT
       posts.description,
       posts.title,
@@ -296,7 +298,10 @@ exports.getAllPosts = catchAsync(async (req, res, next) => {
     JOIN skills AS user_skill ON posts.skill_id = user_skill.id
     JOIN skills AS required_skill ON posts.required_skill_id = required_skill.id
     JOIN users ON posts.user_id = users.id
-    `);
+    WHERE posts.available = $1
+    `,
+    [true]
+  );
 
   if (postsQuery.rows.length === 0) {
     return next(new AppError('No posts yet!', 404));
@@ -309,4 +314,83 @@ exports.getAllPosts = catchAsync(async (req, res, next) => {
     posts,
   });
 });
-//******************************************OOERATIONS FOR ADMINS********************************************************************************/
+
+//This is used when  a user is searching for posts with related skills (skills he can offer and skills he wants)
+exports.getPostsWithSpecificSkills = catchAsync(async (req, res, next) => {
+  const { error } = get_posts_with_specific_skills.validate(req.body);
+
+  if (error) {
+    handleValidatorsErrors(error, next);
+    return;
+  }
+
+  const userId = req.user.id;
+
+  const userSkillQuery = await client.query(
+    `
+    SELECT
+      *
+    FROM users_skills
+
+    WHERE user_id = $1
+    `,
+    [userId]
+  );
+
+  if (userSkillQuery.rows.length === 0) {
+    return next(new AppError('NOOO', 400));
+  }
+  //contains both the id and name of the skill
+  const userSkill = userSkillQuery.rows[0];
+
+  console.log(userSkill);
+
+  const { required_SkillName } = req.body;
+
+  const skillQuery = await client.query(
+    `SELECT * FROM skills WHERE name = $1`,
+    [required_SkillName]
+  );
+
+  if (skillQuery.rows.length === 0) {
+    return next(new AppError('No skill found!', 404));
+  }
+
+  const skill = skillQuery.rows[0];
+
+  const postsQuery = await client.query(
+    `
+      SELECT
+        posts.skill_id,
+        posts.required_skill_id,
+        posts.description,
+        posts.title,
+        posts.created_at,
+        users.first_name,
+        users.last_name,
+        user_skill.name AS user_skill,
+        required_skill.name AS required_skill
+        FROM posts
+
+        JOIN users ON posts.user_id = users.id
+        JOIN skills AS user_skill ON posts.skill_id = user_skill.id
+        JOIN skills AS required_skill ON posts.required_skill_id = required_skill.id
+
+        WHERE posts.skill_id = $1 AND posts.required_skill_id = $2
+    
+    `,
+    [skill.id, userSkill.skill_id]
+  );
+
+  if (postsQuery.rows.length === 0) {
+    return next(new AppError('No posts found', 404));
+  }
+
+  const posts = postsQuery.rows;
+
+  res.status(200).json({
+    status: 'success',
+    posts,
+  });
+});
+

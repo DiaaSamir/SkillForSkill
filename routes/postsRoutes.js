@@ -5,6 +5,13 @@ const postsController = require('../controllers/postsController');
 const router = express.Router();
 
 router
+  .route('/search-for-specific-skill')
+  .post(
+    authController.protect,
+    authController.restrictTo('Admin', 'User'),
+    postsController.getPostsWithSpecificSkills
+  );
+router
   .route('/')
   .get(
     authController.protect,

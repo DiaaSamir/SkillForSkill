@@ -310,7 +310,7 @@ exports.verifyEmail = catchAsync(async (req, res, next) => {
 
   const isVerificationCodeCorrect = compareCode(
     email_verification_code,
-    user.email_verification_code
+    user.verification_code_email
   );
 
   if (!isVerificationCodeCorrect) {

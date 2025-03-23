@@ -21,6 +21,7 @@ exports.createSkill = catchAsync(async (req, res, next) => {
 
   if (error) {
     handleValidatorsErrors(error, next);
+    return;
   }
   const { name } = req.body;
 
@@ -123,28 +124,27 @@ exports.addSkillForUser = catchAsync(async (req, res, next) => {
   const userId = req.params.id;
   const { skillName } = req.body;
 
-  const userSkillQuery = await client.query(
-    `SELECT * FROM users_skills WHERE user_id = $1`,
+  const userQuery = await client.query(
+    `SELECT id, skill_id FROM users WHERE id = $1`,
     [userId]
   );
 
-  if (userSkillQuery.rows.length > 0) {
+  const user = userQuery.rows[0];
+
+  if (user.skill_id !== null) {
     return next(new AppError('This user already registered a skill', 400));
   }
 
   const skillQuery = await client.query(`SELECT * FROM skills WHERE name =$1`, [
     skillName,
   ]);
+
   const skill = skillQuery.rows[0];
 
-  if (!skill || skill.length === 0) {
-    return next(new AppError('Wrong skill name!', 400));
-  }
-
-  await client.query(
-    `INSERT INTO users_skills (user_id, skill_id) VALUES ($1, $2)`,
-    [userId, skill.id]
-  );
+  await client.query(`UPDATE users SET skill_id = $1 WHERE id = $2`, [
+    skill.id,
+    userId,
+  ]);
 
   res.status(200).json({
     status: 'success',
@@ -155,7 +155,10 @@ exports.addSkillForUser = catchAsync(async (req, res, next) => {
 exports.deleteSkillForUser = catchAsync(async (req, res, next) => {
   const userId = req.params.id;
 
-  await client.query(`DELETE FROM users_skills WHERE user_id = $1`, [userId]);
+  await client.query(`UPDATE users SET skill_id = $1 WHERE id = $2`, [
+    null,
+    userId,
+  ]);
 
   res.status(200).json({
     status: 'success',
@@ -174,11 +177,13 @@ exports.userAddSkill = catchAsync(async (req, res, next) => {
   const userId = req.user.id;
 
   const userQuery = await client.query(
-    `SELECT * FROM users_skills WHERE id = $1`,
+    `SELECT id, skill_id FROM users WHERE id = $1`,
     [userId]
   );
 
-  if (userQuery.rows.length > 0) {
+  const user = userQuery.rows[0];
+
+  if (user.skill_id !== null) {
     return next(new AppError('You have already registered a skill!', 400));
   }
 
@@ -187,14 +192,10 @@ exports.userAddSkill = catchAsync(async (req, res, next) => {
   ]);
   const skill = skillQuery.rows[0];
 
-  if (!skill || skill.length === 0) {
-    return next(new AppError('Wrong skill name!', 400));
-  }
-
-  await client.query(
-    `INSERT INTO users_skills (user_id, skill_id) VALUES ($1, $2)`,
-    [userId, skill.id]
-  );
+  await client.query(`UPDATE users SET skill_id = $1 WHERE id = $2`, [
+    skill.id,
+    userId,
+  ]);
 
   res.status(200).json({
     status: 'success',
@@ -205,16 +206,16 @@ exports.userAddSkill = catchAsync(async (req, res, next) => {
 exports.userUpdateSkill = catchAsync(async (req, res, next) => {
   const userId = req.user.id;
 
-  const userSkillQuery = await client.query(
-    `SELECT * FROM users_skills WHERE user_id = $1`,
+  const userQuery = await client.query(
+    `SELECT id, skill_id FROM users WHERE id = $1`,
     [userId]
   );
 
-  const userSkill = userSkillQuery.rows[0];
+  const user = userQuery.rows[0];
 
-  if (!userSkill || userSkill.length === 0) {
+  if (user.skill_id === null) {
     return next(
-      new AppError('Please add a skill first before updating it!', 400)
+      new AppError('You have to add a skill first before updating it!')
     );
   }
 
@@ -222,7 +223,9 @@ exports.userUpdateSkill = catchAsync(async (req, res, next) => {
 
   if (error) {
     handleValidatorsErrors(error, next);
+    return;
   }
+
   const { skillName } = req.body;
 
   const skillQuery = await client.query(
@@ -231,14 +234,10 @@ exports.userUpdateSkill = catchAsync(async (req, res, next) => {
   );
   const skill = skillQuery.rows[0];
 
-  if (!skill || skill.length === 0) {
-    return next(new AppError('Wrong skill name!', 400));
-  }
-
-  await client.query(
-    `UPDATE users_skills SET skill_id = $1 WHERE user_id = $2`,
-    [skill.id, userId]
-  );
+  await client.query(`UPDATE users SET skill_id = $1 WHERE id = $2`, [
+    skill.id,
+    userId,
+  ]);
 
   res.status(200).json({
     status: 'success',

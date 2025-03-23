@@ -2,7 +2,6 @@ const Joi = require('joi');
 const { skillSchema } = require('./skillSchemaDefinition');
 
 const create_post = Joi.object({
-  skillName: skillSchema,
   required_SkillName: skillSchema,
   description: Joi.string().min(50).max(200).required().messages({
     'string.base': 'String is required',

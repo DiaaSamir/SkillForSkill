@@ -41,47 +41,30 @@ exports.createPost = catchAsync(async (req, res, next) => {
 
   if (error) {
     handleValidatorsErrors(error, next);
+    return;
   }
 
-  const isUserVerified = await checkIfUserVerified.checkIfUserVerified(userId);
+  await checkIfUserVerified.isUserVerified(userId, next);
 
-  if (isUserVerified) {
-    return next(
-      new AppError(
-        'Your email is not verified, you have to verify your email to procceed!',
-        400
-      )
-    );
-  }
+  const { required_SkillName, description, title } = req.body;
 
-  const { skillName, required_SkillName, description, title } = req.body;
-
-  //Query to return an array of results which contain both names provided in req.body
-  const skillsQuery = await client.query(
-    `SELECT * FROM skills WHERE name IN ($1, $2)`,
-    [skillName, required_SkillName]
+  const userQuery = await client.query(
+    `SELECT id, skill_id FROM users WHERE id = $1`,
+    [userId]
   );
 
-  const skills = skillsQuery.rows;
+  const user = userQuery.rows[0];
 
-  // Find each skill directly by name
-  const skill = skills.find((skill) => skill.name === skillName);
-
-  const requiredSkill = skills.find(
-    (skill) => skill.name === required_SkillName
+  const skillQuery = await client.query(
+    `SELECT id FROM skills WHERE name = $1`,
+    [required_SkillName]
   );
 
-  // Handle if any skill is missing
-  if (!skill || !requiredSkill) {
-    return next(new AppError('Invalid skill(s) provided!', 400));
-  }
-
-  const skillId = skill.id;
-  const requiredSkillId = requiredSkill.id;
+  const requiredSkill = skillQuery.rows[0];
 
   await client.query(
-    `INSERT INTO POSTS (user_id, skill_id, required_skill_id, description, created_at, title) VALUES ($1, $2, $3, $4, $5, $6)`,
-    [userId, skillId, requiredSkillId, description, new Date(), title]
+    `INSERT INTO posts (user_id, skill_id, required_skill_id, description, created_at, title) VALUES ($1, $2, $3, $4, $5, $6)`,
+    [userId, user.skill_id, requiredSkill.id, description, new Date(), title]
   );
 
   await client.query(`UPDATE users SET did_the_user_post =$1 WHERE id = $2`, [
@@ -187,6 +170,9 @@ exports.updateMyPost = catchAsync(async (req, res, next) => {
 
 exports.getMypost = catchAsync(async (req, res, next) => {
   const userId = req.user.id;
+
+  await checkIfUserVerified.isUserVerified(userId, next);
+
   const postId = req.params.id;
   const postQuery = await client.query(
     `SELECT 
@@ -219,6 +205,8 @@ exports.getMypost = catchAsync(async (req, res, next) => {
 
 exports.getAllMyPosts = catchAsync(async (req, res, next) => {
   const userId = req.user.id;
+
+  await checkIfUserVerified.isUserVerified(userId, next);
 
   const postsQuery = await client.query(
     `SELECT 
@@ -326,24 +314,19 @@ exports.getPostsWithSpecificSkills = catchAsync(async (req, res, next) => {
 
   const userId = req.user.id;
 
-  const userSkillQuery = await client.query(
+  await checkIfUserVerified.isUserVerified(userId, next);
+
+  const userQuery = await client.query(
     `
     SELECT
       *
-    FROM users_skills
-
-    WHERE user_id = $1
+    FROM users
+    WHERE id = $1
     `,
     [userId]
   );
 
-  if (userSkillQuery.rows.length === 0) {
-    return next(new AppError('NOOO', 400));
-  }
-  //contains both the id and name of the skill
-  const userSkill = userSkillQuery.rows[0];
-
-  console.log(userSkill);
+  const user = userQuery.rows[0];
 
   const { required_SkillName } = req.body;
 
@@ -351,10 +334,6 @@ exports.getPostsWithSpecificSkills = catchAsync(async (req, res, next) => {
     `SELECT * FROM skills WHERE name = $1`,
     [required_SkillName]
   );
-
-  if (skillQuery.rows.length === 0) {
-    return next(new AppError('No skill found!', 404));
-  }
 
   const skill = skillQuery.rows[0];
 
@@ -366,8 +345,8 @@ exports.getPostsWithSpecificSkills = catchAsync(async (req, res, next) => {
         posts.description,
         posts.title,
         posts.created_at,
-        users.first_name,
-        users.last_name,
+        users.first_name AS user_first_name,
+        users.last_name AS user_last_name,
         user_skill.name AS user_skill,
         required_skill.name AS required_skill
         FROM posts
@@ -379,7 +358,7 @@ exports.getPostsWithSpecificSkills = catchAsync(async (req, res, next) => {
         WHERE posts.skill_id = $1 AND posts.required_skill_id = $2
     
     `,
-    [skill.id, userSkill.skill_id]
+    [skill.id, user.skill_id]
   );
 
   if (postsQuery.rows.length === 0) {
@@ -393,4 +372,3 @@ exports.getPostsWithSpecificSkills = catchAsync(async (req, res, next) => {
     posts,
   });
 });
-

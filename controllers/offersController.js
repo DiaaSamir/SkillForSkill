@@ -4,19 +4,7 @@ const client = require('../db');
 const { make_offer_validator } = require('../validators/offersSchema');
 const { handleValidatorsErrors } = require('../utils/handleValidatorsErrors');
 const checkIfUserVerified = require('../utils/checkIfUserVerified');
-
-// const check_If_User_Working_On_An_Offer_Already = async (userId) => {
-//   const userQuery = await client.query(
-//     `SELECT id, available FROM users WHERE id = $1`,
-//     [userId]
-//   );
-
-//   const user = userQuery.rows[0];
-
-//   if (user.available === false) {
-//     return next(new AppError('You already working on a project'))
-//   }
-// };
+const { sendToQueue } = require('../utils/rabbitmq');
 
 exports.makeOffer = catchAsync(async (req, res, next) => {
   const { error } = make_offer_validator.validate(req.body);
@@ -32,7 +20,15 @@ exports.makeOffer = catchAsync(async (req, res, next) => {
   await checkIfUserVerified.isUserVerified(userId, next);
 
   const userQuery = await client.query(
-    `SELECT id, available, skill_id FROM users WHERE id = $1`,
+    `SELECT
+      users.id,
+      users.first_name,
+      users.available,
+      users.skill_id,
+      sender_skill.name AS sender_skill
+     FROM users
+     JOIN skills AS sender_skill ON users.skill_id = sender_skill.id
+     WHERE users.id = $1`,
     [userId]
   );
 
@@ -48,7 +44,7 @@ exports.makeOffer = catchAsync(async (req, res, next) => {
   }
 
   const postQuery = await client.query(
-    `SELECT id, user_id, required_skill_id FROM posts WHERE id = $1`,
+    `SELECT id, user_id, skill_id,required_skill_id FROM posts WHERE id = $1`,
     [postId]
   );
 
@@ -85,6 +81,14 @@ exports.makeOffer = catchAsync(async (req, res, next) => {
     `INSERT INTO offers (sender_id, reciever_id, created_at, start_date, end_date, message, post_id) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
     [userId, post.user_id, new Date(), start_date, end_date, message, postId]
   );
+
+  //Using rabbitmq to send email to the user
+  await sendToQueue('offer_queue', {
+    recieverId: post.user_id,
+    senderFirstName: user.first_name,
+    recieverSkill: post.skill_id,
+    senderSkill: user.sender_skill,
+  });
 
   res.status(200).json({
     status: 'success',
@@ -124,3 +128,7 @@ exports.getMyOffers = catchAsync(async (req, res, next) => {
     offers,
   });
 });
+
+exports.acceptOffer = catchAsync(async (req, res, next) => {});
+
+exports.rejectOffer = catchAsync(async (req, res, next) => {});

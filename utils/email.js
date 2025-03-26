@@ -7,13 +7,21 @@ module.exports = class Email {
     user,
     reset_password_code,
     reset_password_expires,
-    verificationCode
+    verificationCode,
+    offer_sender,
+    offer_reciever,
+    offered_skill,
+    required_skill
   ) {
     this.to = user.email;
     this.firstName = user.first_name;
     this.reset_password_code = reset_password_code;
     this.reset_password_expires = reset_password_expires;
     this.verificationCode = verificationCode;
+    this.offer_sender = offer_sender;
+    this.offer_reciever = offer_reciever;
+    this.offered_skill = offered_skill;
+    this.required_skill = required_skill;
     this.from = `SKILLforSKILL<${process.env.EMAIL_FROM}>`;
   }
 
@@ -33,6 +41,10 @@ module.exports = class Email {
     // 1) Render HTML based on a pug template
     const html = pug.renderFile(`${__dirname}/../views/email/${template}.pug`, {
       firstName: this.firstName,
+      offeredUserFirstName: this.offer_reciever,
+      offerSenderFirstName: this.offer_sender,
+      offeredSkill: this.offered_skill,
+      requiredSkill: this.required_skill,
       resetCode: this.reset_password_code,
       verificationCode: this.verificationCode,
       subject,
@@ -67,5 +79,9 @@ module.exports = class Email {
 
   async sendEmailResetVerificationCode() {
     await this.send('emailReset', 'Your email reset verification code');
+  }
+
+  async SendOfferForReciever() {
+    await this.send('makeOffer', 'New offer recieved, CHECK IT NOW!');
   }
 };

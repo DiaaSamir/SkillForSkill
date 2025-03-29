@@ -1,8 +1,8 @@
 const catchAsync = require('express-async-handler');
-const Email = require('../utils/email');
-const { consumeQueue } = require('../utils/rabbitmq');
-const client = require('../db');
-const AppError = require('../utils/appError');
+const Email = require('../../utils/email');
+const { consumeQueue } = require('../../utils/rabbitmq');
+const client = require('../../db');
+const AppError = require('../../utils/appError');
 
 const sendEmailAfterOffer = catchAsync(async (data) => {
   console.log('🚀 Processing offer:', data);

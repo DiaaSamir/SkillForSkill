@@ -20,4 +20,20 @@ router
     offersController.getMyOffers
   );
 
+router
+  .route('/get-offer/:id')
+  .get(
+    authController.protect,
+    authController.restrictTo('User', 'Admin'),
+    offersController.getMyOneOffer
+  );
+
+router
+  .route('/reject-offer/:id')
+  .post(
+    authController.protect,
+    authController.restrictTo('User', 'Admin'),
+    offersController.rejectOffer
+  );
+
 module.exports = router;

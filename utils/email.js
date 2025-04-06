@@ -88,7 +88,14 @@ module.exports = class Email {
   async sendOfferRejectionForUser() {
     await this.send(
       'rejectOffer',
-      'unfortunately, your offer has been rejected! '
+      'Unfortunately, your offer has been rejected! '
+    );
+  }
+
+  async sendAcceptedOfferForSender() {
+    await this.send(
+      'offerAcceptedForSender',
+      'Congratulations, your offer has been accepted!'
     );
   }
 };

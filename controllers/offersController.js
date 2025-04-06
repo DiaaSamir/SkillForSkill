@@ -168,7 +168,38 @@ exports.getMyOneOffer = catchAsync(async (req, res, next) => {
   });
 });
 
-exports.acceptOffer = catchAsync(async (req, res, next) => {});
+exports.acceptOffer = catchAsync(async (req, res, next) => {
+  const offerId = req.params.id;
+  const userId = req.user.id;
+
+  const offerQuery = await client.query(
+    `SELECT id, sender_id, reciever_id, status FROM offers WHERE id =$1, reciever_id = $2`,
+    [offerId, userId, 'Pending']
+  );
+
+  if (offerQuery.rows.length === 0) {
+    return next(new AppError('No offers found!', 404));
+  }
+
+  const offer = offerQuery.rows[0];
+
+  if (offer.status === 'Accepted') {
+    return next(new AppError('You have already accepted the offer!', 400));
+  } else if (offer.status === 'Rejected') {
+    return next(new AppError("You can't reject an accepted offer!", 400));
+  }
+
+  sendToQueue('accept_offer_queue', {
+    offerId: offerId,
+    recieverId: offer.reciever_id,
+    senderId: offer.sender_id,
+  });
+
+  res.status(200).json({
+    status: 'success',
+    message: 'You have accepted the offer successfully',
+  });
+});
 
 exports.rejectOffer = catchAsync(async (req, res, next) => {
   const { error } = offer_reject_response.validate(req.body);
@@ -213,3 +244,5 @@ exports.rejectOffer = catchAsync(async (req, res, next) => {
 });
 
 exports.counterOffer = catchAsync(async (req, res, next) => {});
+
+exports.openTicket;

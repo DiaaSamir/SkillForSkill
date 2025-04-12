@@ -4,6 +4,7 @@ const client = require('../db');
 const {
   make_offer_validator,
   offer_reject_response,
+  offer_accept_response,
 } = require('../validators/offersSchema');
 const { handleValidatorsErrors } = require('../utils/handleValidatorsErrors');
 const checkIfUserVerified = require('../utils/checkIfUserVerified');
@@ -169,12 +170,19 @@ exports.getMyOneOffer = catchAsync(async (req, res, next) => {
 });
 
 exports.acceptOffer = catchAsync(async (req, res, next) => {
+  const { error } = offer_accept_response.validate(req.body);
+
+  if (error) {
+    handleValidatorsErrors(error, next);
+    return;
+  }
+
   const offerId = req.params.id;
   const userId = req.user.id;
 
   const offerQuery = await client.query(
-    `SELECT id, sender_id, reciever_id, status FROM offers WHERE id =$1, reciever_id = $2`,
-    [offerId, userId, 'Pending']
+    `SELECT id, sender_id, reciever_id, status FROM offers WHERE id =$1 AND reciever_id = $2 `,
+    [offerId, userId]
   );
 
   if (offerQuery.rows.length === 0) {
@@ -189,7 +197,7 @@ exports.acceptOffer = catchAsync(async (req, res, next) => {
     return next(new AppError("You can't reject an accepted offer!", 400));
   }
 
-  sendToQueue('accept_offer_queue', {
+  await sendToQueue('accept_offer_queue', {
     offerId: offerId,
     recieverId: offer.reciever_id,
     senderId: offer.sender_id,

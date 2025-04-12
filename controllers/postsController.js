@@ -74,7 +74,7 @@ exports.createPost = catchAsync(async (req, res, next) => {
 
   res.status(200).json({
     status: 'success',
-    message: `Your post has been created successfully! You're offering '${skillName}' in exchange for '${required_SkillName}'. Good luck finding a match!`,
+    message: `Your post has been created successfully!`,
   });
 });
 

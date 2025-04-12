@@ -40,14 +40,26 @@ const consumeQueue = async (queue, callback) => {
   if (!channel) await connectRabbitMQ();
   await assertQueue(queue);
 
-  channel.consume(queue, async (msg) => {
-    if (msg !== null) {
-      const data = JSON.parse(msg.content.toString());
-      await callback(data);
-      channel.ack(msg);
-      console.log(`📤 Processed message from ${queue}:`, data);
-    }
-  });
+  channel.consume(
+    queue,
+    async (msg) => {
+      if (msg !== null) {
+        try {
+          const data = JSON.parse(msg.content.toString());
+          await callback(data); // ⚠️ ممكن ترمي error
+          channel.ack(msg);
+          console.log(`📤 Processed message from ${queue}:`, data);
+        } catch (err) {
+          console.error(
+            `❌ Failed to process message from ${queue}:`,
+            err.message
+          );
+          channel.nack(msg, false, false); // لا تعيدها، اعتبرها فشلت
+        }
+      }
+    },
+    { noAck: false }
+  );
 };
 
 module.exports = { connectRabbitMQ, sendToQueue, consumeQueue, assertQueue };

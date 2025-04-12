@@ -94,7 +94,7 @@ module.exports = class Email {
 
   async sendAcceptedOfferForSender() {
     await this.send(
-      'offerAcceptedForSender',
+      'offerAcceptedForOfferSender',
       'Congratulations, your offer has been accepted!'
     );
   }

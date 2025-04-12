@@ -27,4 +27,10 @@ const make_offer_validator = Joi.object({
 }).unknown(false);
 
 const offer_reject_response = Joi.object({}).unknown(false);
-module.exports = { make_offer_validator, offer_reject_response };
+
+const offer_accept_response = Joi.object({}).unknown(false);
+module.exports = {
+  make_offer_validator,
+  offer_reject_response,
+  offer_accept_response,
+};

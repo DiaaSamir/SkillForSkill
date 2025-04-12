@@ -36,4 +36,12 @@ router
     offersController.rejectOffer
   );
 
+router
+  .route('/accept-offer/:id')
+  .post(
+    authController.protect,
+    authController.restrictTo('User', 'Admin'),
+    offersController.acceptOffer
+  );
+
 module.exports = router;

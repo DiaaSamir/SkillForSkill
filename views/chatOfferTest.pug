@@ -1,0 +1,120 @@
+doctype html
+html
+  head
+    title Chat for Accepted Offer
+    // Include Socket.IO client library
+    script(src="https://cdn.socket.io/4.0.1/socket.io.min.js")
+    style.
+      body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 20px;
+      }
+      #messages {
+        width: 100%;
+        max-width: 600px;
+        max-height: 300px;
+        overflow-y: auto;
+        border: 1px solid #ccc;
+        padding: 10px;
+        margin-bottom: 10px;
+        background-color: #f9f9f9;
+      }
+      #message-input {
+        width: 100%;
+        max-width: 600px;
+        padding: 10px;
+        margin-bottom: 10px;
+      }
+      #send-btn {
+        padding: 10px 20px;
+        cursor: pointer;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 5px;
+      }
+      #status {
+        color: green;
+        margin-top: 20px;
+        font-size: 16px;
+      }
+  body
+    h1 Chat for Accepted Offer
+    p#status Waiting for the offer acceptance...
+    // Container for displaying chat messages
+    #messages
+    // Input field and button for new messages
+    input#message-input(type="text" placeholder="Enter a message...")
+    button#send-btn Send Message
+
+    // Begin inline script
+    script.
+      // Initialize Socket.IO client
+      const socket = io();
+
+      // Dynamically passed values from Express
+      const offerId = "#{offerId}";       // e.g., "123"
+      const senderId = "#{senderId}";       // e.g., "1"
+      const receiverId = "#{receiverId}";   // e.g., "2"
+      const userId = "#{userId}";           // Logged in user's id
+
+      // Construct the room id in the same format as your backend
+      const roomId = "offer_" + offerId + "_" + senderId + "_" + receiverId;
+
+      // Join the chat room via Socket.IO
+      socket.emit('joinRoom', { roomId });
+
+      // Listen for real-time messages from the server
+      socket.on('message', (msg) => {
+        const messagesContainer = document.getElementById('messages');
+        const messageElement = document.createElement('div');
+        messageElement.textContent = msg.senderId + ": " + msg.message + " (Sent at: " + new Date(msg.timeStamp).toLocaleString() + ")";
+        messagesContainer.appendChild(messageElement);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      });
+
+      // Optionally, update the status when an offer is accepted
+      socket.on('offerAccepted', ({ roomId: acceptedRoomId }) => {
+        document.getElementById('status').textContent = 'The offer has been accepted! You can now chat.';
+        console.log("Joined chat room:", acceptedRoomId);
+      });
+
+      // Function to send a message via AJAX to your /send-message/:id route
+      async function sendMessage() {
+        const message = document.getElementById('message-input').value;
+        if (!message) return;
+        const payload = { message };
+
+        try {
+          // Send a POST request to /send-message/:offerId
+          const response = await fetch('/send-message/' + offerId, {
+            method: 'POST',
+            headers: {
+              "Content-Type": "application/json"
+              // If you store your JWT in a header or cookie, ensure it is sent here.
+            },
+            body: JSON.stringify(payload)
+          });
+
+          const data = await response.json();
+          if (data.status !== 'success') {
+            console.error("Error sending message:", data.message);
+          } else {
+            // Optionally clear the input if the message was sent successfully
+            document.getElementById('message-input').value = "";
+          }
+        } catch (err) {
+          console.error("Fetch error:", err);
+        }
+      }
+
+      // Listen for button clicks to send messages
+      document.getElementById("send-btn").addEventListener("click", sendMessage);
+
+      // Optional: Log when disconnected from the server
+      socket.on('disconnect', () => {
+        console.log('Disconnected from the server.');
+      });

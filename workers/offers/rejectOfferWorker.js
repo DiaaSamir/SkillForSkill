@@ -56,8 +56,8 @@ const sendEmailAfterRejection = catchAsync(async (data) => {
   ).sendOfferRejectionForUser();
 });
 
-const startWoker = async () => {
+const startRejectOfferWoker = async () => {
   await consumeQueue('reject_offer_queue', sendEmailAfterRejection);
 };
 
-startWoker();
+module.exports = { startRejectOfferWoker };

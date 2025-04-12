@@ -2,9 +2,11 @@ const app = require('./app');
 const dotenv = require('dotenv');
 const db = require('./db');
 const { connectRabbitMQ } = require('./utils/rabbitmq');
-const offerWorker = require('./workers/offers/offerWoker');
-const rejectOfferWorker = require('./workers/offers/rejectOfferWorker');
-const acceptOfferWorker = require('./workers/offers/acceptOfferWorker');
+const { startWoker } = require('./workers/offers/offerWoker');
+const { startRejectOfferWoker } = require('./workers/offers/rejectOfferWorker');
+const {
+  start_accept_offer_worker,
+} = require('./workers/offers/acceptOfferWorker');
 const http = require('http');
 const { setupSocket } = require('./utils/socket');
 
@@ -20,6 +22,18 @@ setupSocket(server);
 server.listen(port, () => {
   console.log(`App listening on ${port}`);
 });
+
+connectRabbitMQ() // لو محتاج تربط RabbitMQ من بدري
+  .then(() => {
+    start_accept_offer_worker();
+    startWoker();
+    startRejectOfferWoker();
+  })
+  .catch((err) => {
+    console.error('❌ Failed to connect RabbitMQ:', err);
+  });
+
+  
 
 process.on('unhandledRejection', (err) => {
   console.log(err.name, err.message);

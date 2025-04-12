@@ -43,4 +43,4 @@ const startWoker = async () => {
   await consumeQueue('offer_queue', sendEmailAfterOffer);
 };
 
-startWoker();
+module.exports = { startWoker };

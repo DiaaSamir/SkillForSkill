@@ -98,4 +98,8 @@ module.exports = class Email {
       'Congratulations, your offer has been accepted!'
     );
   }
+
+  async sendCounterOffer() {
+    await this.send('counterOffer', 'Your offer has been countered!');
+  }
 };

@@ -181,7 +181,7 @@ exports.acceptOffer = catchAsync(async (req, res, next) => {
   const userId = req.user.id;
 
   const offerQuery = await client.query(
-    `SELECT id, sender_id, reciever_id, status FROM offers WHERE id =$1 AND reciever_id = $2 `,
+    `SELECT id, sender_id, reciever_id, status, is_countered FROM offers WHERE id =$1 AND reciever_id = $2 `,
     [offerId, userId]
   );
 
@@ -195,6 +195,15 @@ exports.acceptOffer = catchAsync(async (req, res, next) => {
     return next(new AppError('You have already accepted the offer!', 400));
   } else if (offer.status === 'Rejected') {
     return next(new AppError("You can't reject an accepted offer!", 400));
+  }
+
+  if (offer.is_countered === true) {
+    return next(
+      new AppError(
+        'Your offer has been countered, please review the new offer first!',
+        400
+      )
+    );
   }
 
   await sendToQueue('accept_offer_queue', {
@@ -251,6 +260,61 @@ exports.rejectOffer = catchAsync(async (req, res, next) => {
   });
 });
 
-exports.counterOffer = catchAsync(async (req, res, next) => {});
+exports.counterOffer = catchAsync(async (req, res, next) => {
+  //1) Get the offer using id
+  const offerId = req.params.id;
+  const userId = req.user.id;
+
+  //2)check if the offer is not pending(Accpted pr Rejected) then return an error
+  const offerQuery = await client.query(
+    `SELECT id, sender_id, reciever_id, status,is_countered FROM offers WHERE id = $1 AND reciever_id = $2`,
+    [offerId, userId]
+  );
+
+  if (offerQuery.rows.length === 0) {
+    return next(new AppError('No offers found!', 404));
+  }
+
+  const offer = offerQuery.rows[0];
+
+  if (offer.is_countered === true) {
+    return next(
+      new AppError(
+        "You have already countered the offer, wait for the other user's response!",
+        400
+      )
+    );
+  }
+
+  //3)Validate the req.body
+  const { error } = make_offer_validator.validate(req.body);
+
+  if (error) {
+    handleValidatorsErrors(error, next);
+    return;
+  }
+  //4) Get start_date, end_date, message From req.body
+  const { message, start_date, end_date } = req.body;
+
+  //5) Counter offer queue will handle the rest
+  await sendToQueue('counter_offer_queue', {
+    recieverId: offer.reciever_id,
+    senderId: offer.sender_id,
+    offerId: offer.id,
+  });
+
+  //6) Insert into counter_offers table the details of the new counter offer
+  await client.query(
+    `INSERT INTO counter_offers (offer_id, start_date, end_date, message) VALUES ($1, $2, $3, $4)`,
+    [offerId, start_date, end_date, message]
+  );
+
+  //7)Send the response for the user
+  res.status(201).json({
+    status: 'success',
+    message:
+      "You have countered the offer successfully, please wait for the other user's response",
+  });
+});
 
 exports.openTicket;

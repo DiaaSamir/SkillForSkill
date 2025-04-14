@@ -44,4 +44,12 @@ router
     offersController.acceptOffer
   );
 
+router
+  .route('/counter-offer/:id')
+  .post(
+    authController.protect,
+    authController.restrictTo('User', 'Admin'),
+    offersController.counterOffer
+  );
+
 module.exports = router;

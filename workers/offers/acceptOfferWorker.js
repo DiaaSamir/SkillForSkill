@@ -1,9 +1,7 @@
-const catchAsync = require('express-async-handler');
 const Email = require('../../utils/email');
 const { consumeQueue } = require('../../utils/rabbitmq');
 const client = require('../../db');
 const { getIO } = require('../../utils/socket');
-const AppError = require('../../utils/appError');
 
 const afterAcceptingOffer = async (data) => {
   try {
@@ -45,8 +43,8 @@ const afterAcceptingOffer = async (data) => {
     ]);
 
     await client.query(
-      `UPDATE offers SET status = $1 WHERE id = $2 AND reciever_id = $3`,
-      ['Accepted', data.offerId, data.recieverId]
+      `UPDATE offers SET status = $1, project_phase = $2 WHERE id = $3 AND reciever_id = $4`,
+      ['Accepted', 'In-progress', data.offerId, data.recieverId]
     );
 
     await new Email(

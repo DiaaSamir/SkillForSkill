@@ -1,0 +1,15 @@
+extends baseEmail
+
+block content
+  p Hi #{offeredUserFirstName},
+
+  p You've received a counter offer from #{offerSenderFirstName}!
+
+  p Their Offered Skill: #{offeredSkill}
+  p Required Skill: #{requiredSkill}
+
+  p Please check your account to review and respond to this counter offer.
+
+  p (Feature still under development — actions may be limited.)
+
+  p If you weren't expecting this offer, feel free to ignore this message.

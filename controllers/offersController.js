@@ -361,6 +361,8 @@ exports.acceptCounterOffer = catchAsync(async (req, res, next) => {
       offers.id AS offer_id,
       offers.sender_id AS reciever,
       offers.reciever_id AS sender,
+      offers.status,
+      offers.is_countered,
       co.message AS counter_offer_message,
       co.start_date AS counter_offer_start_date,
       co.end_date AS counter_offer_end_date
@@ -379,6 +381,21 @@ exports.acceptCounterOffer = catchAsync(async (req, res, next) => {
 
   const counterOffer = counterOfferQuery.rows[0];
 
+  //Check if its already accepted or rejected
+
+  if (counterOffer.is_countered === false) {
+    return next(
+      new AppError('Offer is not countered to accept or reject!', 400)
+    );
+  }
+
+  if (counterOffer.status === 'Accepted') {
+    return next(new AppError('You have already accepted the offer!', 400));
+  }
+
+  if (counterOffer.status === 'Rejected') {
+    return next(new AppError("You can't accept a rejected offer!", 400));
+  }
   //4) check if anything is provided in req.body(nothing should be sent with req.body)
   const { error } = offer_accept_response.validate(req.body);
 

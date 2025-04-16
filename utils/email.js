@@ -102,4 +102,11 @@ module.exports = class Email {
   async sendCounterOffer() {
     await this.send('counterOffer', 'Your offer has been countered!');
   }
+
+  async sendAcceptedCounterOfferForUser() {
+    await this.send(
+      'acceptCounterOffer',
+      'Your counter offer has been accepted!'
+    );
+  }
 };

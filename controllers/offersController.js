@@ -10,7 +10,10 @@ const { handleValidatorsErrors } = require('../utils/handleValidatorsErrors');
 const checkIfUserVerified = require('../utils/checkIfUserVerified');
 const { sendToQueue } = require('../utils/rabbitmq');
 const factory = require('./handlerFactory');
+const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
 
+dayjs.extend(utc);
 exports.makeOffer = catchAsync(async (req, res, next) => {
   const { error } = make_offer_validator.validate(req.body);
 
@@ -80,11 +83,21 @@ exports.makeOffer = catchAsync(async (req, res, next) => {
     );
   }
 
-  const { start_date, end_date, message } = req.body;
-
+  //4) Get start_date, end_date, message From req.body
+  const { message, start_date, end_date } = req.body;
+  const parsedStartDate = new Date(start_date);
+  const parsedEndDate = new Date(end_date);
   await client.query(
     `INSERT INTO offers (sender_id, reciever_id, created_at, start_date, end_date, message, post_id) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-    [userId, post.user_id, new Date(), start_date, end_date, message, postId]
+    [
+      userId,
+      post.user_id,
+      new Date(),
+      parsedStartDate,
+      parsedEndDate,
+      message,
+      postId,
+    ]
   );
 
   //Using rabbitmq to send email to the user
@@ -265,7 +278,7 @@ exports.counterOffer = catchAsync(async (req, res, next) => {
   const offerId = req.params.id;
   const userId = req.user.id;
 
-  //2)check if the offer is not pending(Accpted pr Rejected) then return an error
+  //2)check if the offer is not pending(Accpted or Rejected) then return an error
   const offerQuery = await client.query(
     `SELECT id, sender_id, reciever_id, status,is_countered FROM offers WHERE id = $1 AND reciever_id = $2`,
     [offerId, userId]
@@ -296,18 +309,24 @@ exports.counterOffer = catchAsync(async (req, res, next) => {
   //4) Get start_date, end_date, message From req.body
   const { message, start_date, end_date } = req.body;
 
-  //5) Counter offer queue will handle the rest
+  const parsedStartDate = new Date(start_date);
+  const parsedEndDate = new Date(end_date);
+
+  //5) Insert into counter_offers table the details of the new counter offer
+  const counterOfferQuery = await client.query(
+    `INSERT INTO counter_offers (start_date, end_date, message) VALUES ($1, $2, $3) RETURNING id`,
+    [parsedStartDate, parsedEndDate, message]
+  );
+
+  const counter_offer_id = counterOfferQuery.rows[0];
+
+  //6) Counter offer queue will handle the rest
   await sendToQueue('counter_offer_queue', {
     recieverId: offer.reciever_id,
     senderId: offer.sender_id,
     offerId: offer.id,
+    counterOfferId: counter_offer_id.id,
   });
-
-  //6) Insert into counter_offers table the details of the new counter offer
-  await client.query(
-    `INSERT INTO counter_offers (offer_id, start_date, end_date, message) VALUES ($1, $2, $3, $4)`,
-    [offerId, start_date, end_date, message]
-  );
 
   //7)Send the response for the user
   res.status(201).json({
@@ -316,5 +335,89 @@ exports.counterOffer = catchAsync(async (req, res, next) => {
       "You have countered the offer successfully, please wait for the other user's response",
   });
 });
+
+//Counter Offer reciever(Which is offer sender in this case) can get his offers
+exports.getMyCounterOffer = catchAsync(async (req, res, next) => {});
+
+//Counter Offer reciever(Which is offer sender in this case) can get his offer by Id
+exports.getMyOneCounterOffer = catchAsync(async (req, res, next) => {});
+
+//Counter Offer sender(Which is offer reciever in this case) can delete his offer
+exports.updateMyCounterOffer = catchAsync(async (req, res, next) => {});
+
+//Counter Offer sender(Which is offer reciever in this case) can delete his offer
+exports.deleteMyCounterOffer = catchAsync(async (req, res, next) => {});
+
+//Counter offer reciever can accept the offer
+exports.acceptCounterOffer = catchAsync(async (req, res, next) => {
+  //1)Get counter off and user IDs
+  const counterOfferId = req.params.id;
+  const userId = req.user.id;
+
+  //2)Query for the counter offer
+  const counterOfferQuery = await client.query(
+    `
+    SELECT
+      offers.id AS offer_id,
+      offers.sender_id AS reciever,
+      offers.reciever_id AS sender,
+      co.message AS counter_offer_message,
+      co.start_date AS counter_offer_start_date,
+      co.end_date AS counter_offer_end_date
+    FROM offers
+    
+    JOIN counter_offers AS co ON offers.counter_offer_id = co.id
+    WHERE offers.counter_offer_id = $1 AND offers.sender_id = $2
+    `,
+    [counterOfferId, userId]
+  );
+
+  //3)check if it exists
+  if (counterOfferQuery.rows.length === 0) {
+    return next(new AppError('No counter offers found!', 404));
+  }
+
+  const counterOffer = counterOfferQuery.rows[0];
+
+  //4) check if anything is provided in req.body(nothing should be sent with req.body)
+  const { error } = offer_accept_response.validate(req.body);
+
+  if (error) {
+    handleValidatorsErrors(error, next);
+    return;
+  }
+
+  console.log(
+    counterOffer.counter_offer_start_date,
+    counterOffer.counter_offer_end_date
+  );
+  //5)If yes, then send the rest for the worker to handle the rest
+  await sendToQueue('accept_counter_offer_queue', {
+    recieverId: counterOffer.reciever,
+    senderId: counterOffer.sender,
+    offerId: counterOffer.offer_id,
+    counterOfferMessage: counterOffer.counter_offer_message,
+    counterOfferStartDate: counterOffer.counter_offer_start_date,
+    counterOfferEndDate: counterOffer.counter_offer_end_date,
+  });
+
+  //6)Send a response for the user
+  res.status(200).json({
+    status: 'success',
+    message: 'You have accepted the offer successfully',
+  });
+});
+
+//Counter offer reciever can reject the offer
+exports.rejectCounterOffer = catchAsync(async (req, res, next) => {});
+
+//******************************FOR ADMINS ONLY***************************************** */
+exports.getAllCounterOffer = catchAsync(async (req, res, next) => {});
+
+exports.getOneCounterOffer = catchAsync(async (req, res, next) => {});
+
+exports.deleteOneCounterOffer = catchAsync(async (req, res, next) => {});
+
+exports.updateOneCounterOffer = catchAsync(async (req, res, next) => {});
 
 exports.openTicket;

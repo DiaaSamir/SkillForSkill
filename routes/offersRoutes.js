@@ -52,4 +52,12 @@ router
     offersController.counterOffer
   );
 
+router
+  .route('/c/:id')
+  .post(
+    authController.protect,
+    authController.restrictTo('User', 'Admin'),
+    offersController.acceptCounterOffer
+  );
+
 module.exports = router;

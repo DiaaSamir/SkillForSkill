@@ -10,6 +10,10 @@ const {
 const {
   start_counter_offer_worker,
 } = require('./workers/offers/counterOfferWorker');
+
+const {
+  start_accept_counter_offer_worker,
+} = require('./workers/offers/acceptCounterOfferWorker');
 const http = require('http');
 const { setupSocket } = require('./utils/socket');
 
@@ -32,6 +36,7 @@ connectRabbitMQ()
     startWoker();
     startRejectOfferWoker();
     start_counter_offer_worker();
+    start_accept_counter_offer_worker();
   })
   .catch((err) => {
     console.error('❌ Failed to connect RabbitMQ:', err);

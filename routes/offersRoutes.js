@@ -53,11 +53,43 @@ router
   );
 
 router
-  .route('/c/:id')
+  .route('/c/accept/:id')
   .post(
     authController.protect,
     authController.restrictTo('User', 'Admin'),
     offersController.acceptCounterOffer
+  );
+
+router
+  .route('/c/reject/:id')
+  .post(
+    authController.protect,
+    authController.restrictTo('User', 'Admin'),
+    offersController.rejectCounterOffer
+  );
+
+router
+  .route('/c')
+  .get(
+    authController.protect,
+    authController.restrictTo('User', 'Admin'),
+    offersController.getMyCounterOffers
+  );
+
+router
+  .route('/c/:id')
+  .get(
+    authController.protect,
+    authController.restrictTo('User', 'Admin'),
+    offersController.getMyOneCounterOffer
+  );
+
+router
+  .route('/c/update/:id')
+  .patch(
+    authController.protect,
+    authController.restrictTo('User', 'Admin'),
+    offersController.updateMyCounterOffer
   );
 
 module.exports = router;

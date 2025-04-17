@@ -45,11 +45,8 @@ const acceptCounterOffer = async (data) => {
       `
     SELECT
       users.first_name,
-      users.email,
-      reciever_skill.name AS reciever_skill
+      users.email
     FROM users
-
-    JOIN skills AS reciever_skill ON users.skill_id = reciever_skill.id
     WHERE users.id = $1
     `,
       [recieverId]
@@ -67,11 +64,8 @@ const acceptCounterOffer = async (data) => {
       `
     SELECT
       users.email,
-      users.first_name,
-      sender_skill.name AS sender_skill
+      users.first_name
     FROM users
-
-    JOIN skills AS sender_skill ON users.skill_id = sender_skill.id
     WHERE users.id = $1
     `,
       [senderId]
@@ -119,8 +113,6 @@ const acceptCounterOffer = async (data) => {
       null,
       sender.first_name,
       reciever.first_name,
-      sender.sender_skill,
-      reciever.reciever_skill
     ).sendAcceptedCounterOfferForUser();
 
     //Add both users for the chat room
@@ -145,7 +137,7 @@ const acceptCounterOffer = async (data) => {
 
     console.log(`Does room ${roomId} exist?`, roomExists);
   } catch (err) {
-    console.error('❌ Error in afterCounterOffer:', err.message);
+    console.error('❌ Error in acceptCounterOffer:', err.message);
     throw err; // Let consumeQueue handle ack/nack
   }
 };

@@ -5,6 +5,7 @@ const {
   make_offer_validator,
   offer_reject_response,
   offer_accept_response,
+  update_counter_offer,
 } = require('../validators/offersSchema');
 const { handleValidatorsErrors } = require('../utils/handleValidatorsErrors');
 const checkIfUserVerified = require('../utils/checkIfUserVerified');
@@ -12,8 +13,8 @@ const { sendToQueue } = require('../utils/rabbitmq');
 const factory = require('./handlerFactory');
 const dayjs = require('dayjs');
 const utc = require('dayjs/plugin/utc');
-
 dayjs.extend(utc);
+
 exports.makeOffer = catchAsync(async (req, res, next) => {
   const { error } = make_offer_validator.validate(req.body);
 
@@ -337,13 +338,133 @@ exports.counterOffer = catchAsync(async (req, res, next) => {
 });
 
 //Counter Offer reciever(Which is offer sender in this case) can get his offers
-exports.getMyCounterOffer = catchAsync(async (req, res, next) => {});
+exports.getMyCounterOffers = catchAsync(async (req, res, next) => {
+  const userId = req.user.id;
+
+  const counterOffersQuery = await client.query(
+    `
+    SELECT
+      counter_offer_sender.first_name AS counter_offer_sender,
+      counter_offers.message AS counter_offer_message,
+      counter_offers.start_date AS counter_offer_start_date,
+      counter_offers.end_date AS counter_offer_end_date
+    FROM offers
+    JOIN users AS counter_offer_sender ON offers.reciever_id =  counter_offer_sender.id
+    JOIN counter_offers AS counter_offers ON offers.counter_offer_id = counter_offers.id
+    WHERE offers.sender_id = $1 AND offers.status = $2
+    `,
+    [userId, 'Pending']
+  );
+
+  if (counterOffersQuery.rows.length === 0) {
+    return next(new AppError('No counter offers yet!', 404));
+  }
+
+  const counterOffers = counterOffersQuery.rows;
+
+  res.status(200).json({
+    status: 'success',
+    counterOffers,
+  });
+});
 
 //Counter Offer reciever(Which is offer sender in this case) can get his offer by Id
-exports.getMyOneCounterOffer = catchAsync(async (req, res, next) => {});
+exports.getMyOneCounterOffer = catchAsync(async (req, res, next) => {
+  const userId = req.user.id;
+  const counterOfferId = req.params.id;
 
-//Counter Offer sender(Which is offer reciever in this case) can delete his offer
-exports.updateMyCounterOffer = catchAsync(async (req, res, next) => {});
+  const counterOffersQuery = await client.query(
+    `
+    SELECT
+      counter_offer_sender.first_name AS counter_offer_sender,
+      counter_offers.message AS counter_offer_message,
+      counter_offers.start_date AS counter_offer_start_date,
+      counter_offers.end_date AS counter_offer_end_date
+    FROM offers
+    JOIN users AS counter_offer_sender ON offers.reciever_id =  counter_offer_sender.id
+    JOIN counter_offers AS counter_offers ON offers.counter_offer_id = counter_offers.id
+    WHERE offers.counter_offer_id = $1 AND offers.sender_id = $2 AND offers.status = $3
+    `,
+    [counterOfferId, userId, 'Pending']
+  );
+
+  if (counterOffersQuery.rows.length === 0) {
+    return next(new AppError('No counter offers yet!', 404));
+  }
+
+  const counterOffers = counterOffersQuery.rows;
+
+  res.status(200).json({
+    status: 'success',
+    counterOffers,
+  });
+});
+
+//Counter offer sender(which is offer reciever) can get his sent offers
+exports.getMySentCounterOffers = catchAsync(async (req, res, next) => {});
+
+//Counter offer sender(which is offer reciever) can get his sent offer by Id
+exports.getMyOneSentCounterOffer = catchAsync(async (req, res, next) => {});
+
+//Counter Offer sender(Which is offer reciever in this case) can update his offer
+exports.updateMyCounterOffer = catchAsync(async (req, res, next) => {
+  const { error } = update_counter_offer.validate(req.body);
+
+  if (error) {
+    handleValidatorsErrors(error, next);
+  }
+
+  const { message, start_date, end_date } = req.body;
+  const userId = req.user.id;
+  const counterOfferId = req.params.id;
+
+  const counterOfferQuery = await client.query(
+    `SELECT id, status, is_countered FROM offers WHERE counter_offer_id = $1 AND reciever_id = $2`,
+    [counterOfferId, userId]
+  );
+
+  if (counterOfferQuery.rows.length === 0) {
+    return next(new AppError('No counter offers found!', 404));
+  }
+
+  const counterOffer = counterOfferQuery.rows[0];
+
+  if (counterOffer.status !== 'Pending') {
+    return next(
+      new AppError("You can't update a rejected or accepted offer!", 400)
+    );
+  }
+
+  if (counterOffer.is_countered === false) {
+    return next(new AppError('The offer is not countered yet!', 400));
+  }
+
+  const updateCounterOfferQuery = await client.query(
+    `
+    UPDATE counter_offers
+      SET
+        message = COALESCE($1, message),
+        start_date = COALESCE($2, start_date),
+        end_date = COALESCE($3, end_date)
+    WHERE id = $4 RETURNING *
+    `,
+    [message, start_date, end_date, counterOfferId]
+  );
+
+  if (updateCounterOfferQuery.rows.length === 0) {
+    return next(
+      new AppError(
+        'Error in updating your counter offer, please try again later!',
+        400
+      )
+    );
+  }
+
+  res.status(200).json({
+    status: 'success',
+    message: 'You have updated your counter offer successfully',
+  });
+});
 
 //Counter Offer sender(Which is offer reciever in this case) can delete his offer
 exports.deleteMyCounterOffer = catchAsync(async (req, res, next) => {});
@@ -376,7 +497,7 @@ exports.acceptCounterOffer = catchAsync(async (req, res, next) => {
 
   //3)check if it exists
   if (counterOfferQuery.rows.length === 0) {
-    return next(new AppError('No counter offers found!', 404));
+    return next(new AppError('No counter offers found for this offer!', 404));
   }
 
   const counterOffer = counterOfferQuery.rows[0];
@@ -426,7 +547,68 @@ exports.acceptCounterOffer = catchAsync(async (req, res, next) => {
 });
 
 //Counter offer reciever can reject the offer
-exports.rejectCounterOffer = catchAsync(async (req, res, next) => {});
+exports.rejectCounterOffer = catchAsync(async (req, res, next) => {
+  //Get counter offer id and user id
+  const counteOfferId = req.params.id;
+  const userId = req.user.id;
+
+  //check if anything is anything comes with the request(nothing should be provided)
+  const { error } = offer_reject_response.validate(req.body);
+
+  if (error) {
+    handleValidatorsErrors(error, next);
+    return;
+  }
+
+  //Query for the counter offer
+  const counterOfferQuery = await client.query(
+    `
+    SELECT
+      offers.id,
+      offers.sender_id AS reciever,
+      offers.reciever_id AS sender,
+      offers.counter_offer_id,
+      offers.status,
+      offers.is_countered
+    FROM offers
+    WHERE offers.counter_offer_id = $1 AND offers.sender_id = $2
+    `,
+    [counteOfferId, userId]
+  );
+
+  //If no counter offers found return an error
+  if (counterOfferQuery.rows.length === 0) {
+    return next(new AppError('No counter offers found for this offer!', 404));
+  }
+
+  const counterOffer = counterOfferQuery.rows[0];
+  //Check if status is not accepted or rejected already and check if it is even countered
+  if (counterOffer.status === 'Accepted') {
+    return next(new AppError("You can't reject an accepted offer!", 400));
+  }
+
+  if (counterOffer.status === 'Rejected') {
+    return next(new AppError('You have already rejected the offer!', 400));
+  }
+
+  if (counterOffer.is_countered === false) {
+    return next(
+      new AppError('Offer is not countered to accept or reject!', 400)
+    );
+  }
+  //Send values to the queue to handle sending email and update db
+  await sendToQueue('reject_counter_offer_queue', {
+    offerId: counterOffer.id,
+    senderId: counterOffer.sender,
+    recieverId: counterOffer.reciever,
+  });
+
+  //Send response for the user
+  res.status(200).json({
+    status: 'success',
+    message: 'You have rejected the offer successfully!',
+  });
+});
 
 //******************************FOR ADMINS ONLY***************************************** */
 exports.getAllCounterOffer = catchAsync(async (req, res, next) => {});

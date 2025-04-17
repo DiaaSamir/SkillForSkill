@@ -109,4 +109,11 @@ module.exports = class Email {
       'Your counter offer has been accepted!'
     );
   }
+
+  async sendRejectedCounterofferForUser() {
+    await this.send(
+      'rejectCounterOffer',
+      'Unfortunately, your counter offer has been rejected! '
+    );
+  }
 };

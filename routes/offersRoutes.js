@@ -21,6 +21,13 @@ router
   );
 
 router
+  .route('/c/sent/all-counter-offers')
+  .get(
+    authController.protect,
+    authController.restrictTo('User', 'Admin'),
+    offersController.getMySentCounterOffers
+  );
+router
   .route('/get-offer/:id')
   .get(
     authController.protect,
@@ -69,7 +76,7 @@ router
   );
 
 router
-  .route('/c')
+  .route('/c/recieved')
   .get(
     authController.protect,
     authController.restrictTo('User', 'Admin'),
@@ -77,7 +84,7 @@ router
   );
 
 router
-  .route('/c/:id')
+  .route('/c/recieved/:id')
   .get(
     authController.protect,
     authController.restrictTo('User', 'Admin'),
@@ -89,7 +96,54 @@ router
   .patch(
     authController.protect,
     authController.restrictTo('User', 'Admin'),
-    offersController.updateMyCounterOffer
+    offersController.updateMySentCounterOffer
   );
 
+router
+  .route('/c/delete/:id')
+  .delete(
+    authController.protect,
+    authController.restrictTo('User', 'Admin'),
+    offersController.deleteMySentCounterOffer
+  );
+
+router
+  .route('/c/sent/:id')
+  .get(
+    authController.protect,
+    authController.restrictTo('User', 'Admin'),
+    offersController.getMyOneSentCounterOffer
+  );
+
+router
+  .route('/c/a')
+  .get(
+    authController.protect,
+    authController.restrictTo('Admin'),
+    offersController.getAllCounterOffersForAdmin
+  );
+
+router
+  .route('/c/a/:id')
+  .get(
+    authController.protect,
+    authController.restrictTo('Admin'),
+    offersController.getOneCounterOfferForAdmin
+  );
+
+router
+  .route('/c/a/update/:id')
+  .patch(
+    authController.protect,
+    authController.restrictTo('Admin'),
+    offersController.updateOneCounterOfferForAdmin
+  );
+
+router
+  .route('/c/a/delete/:id')
+  .delete(
+    authController.protect,
+    authController.restrictTo('Admin'),
+    offersController.deleteOneCounterOfferForAdmin
+  );
 module.exports = router;

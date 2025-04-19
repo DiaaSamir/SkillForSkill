@@ -401,13 +401,66 @@ exports.getMyOneCounterOffer = catchAsync(async (req, res, next) => {
 });
 
 //Counter offer sender(which is offer reciever) can get his sent offers
-exports.getMySentCounterOffers = catchAsync(async (req, res, next) => {});
+exports.getMySentCounterOffers = catchAsync(async (req, res, next) => {
+  const userId = req.user.id;
+
+  const counterOffersQuery = await client.query(
+    `
+    SELECT
+      co.start_date AS counter_offer_start_date,
+      co.end_date AS counter_offer_end_date,
+      co.message AS counter_offer_message
+    FROM offers
+    JOIN counter_offers AS co ON offers.counter_offer_id = co.id
+    WHERE offers.reciever_id = $1 AND offers.is_countered = $2 AND offers.status = $3
+    `,
+    [userId, true, 'Pending']
+  );
+
+  if (counterOffersQuery.rows.length === 0) {
+    return next(new AppError("You haven't sent any counter offers yet!", 404));
+  }
+
+  const counterOffers = counterOffersQuery.rows;
+
+  res.status(200).json({
+    status: 'success',
+    counterOffers,
+  });
+});
 
 //Counter offer sender(which is offer reciever) can get his sent offer by Id
-exports.getMyOneSentCounterOffer = catchAsync(async (req, res, next) => {});
+exports.getMyOneSentCounterOffer = catchAsync(async (req, res, next) => {
+  const userId = req.user.id;
+  const counterOfferId = req.params.id;
+
+  const counterOfferQuery = await client.query(
+    `
+    SELECT
+      co.start_date AS counter_offer_start_date,
+      co.end_date AS counter_offer_end_date,
+      co.message AS counter_offer_message
+    FROM offers
+    JOIN counter_offers AS co ON offers.counter_offer_id = co.id
+    WHERE offers.reciever_id = $1 AND offers.is_countered = $2 AND offers.status = $3 AND offers.counter_offer_id = $4
+    `,
+    [userId, true, 'Pending', counterOfferId]
+  );
+
+  if (counterOfferQuery.rows.length === 0) {
+    return next(new AppError('No counter offers found!', 404));
+  }
+
+  const counterOffer = counterOfferQuery.rows[0];
+
+  res.status(200).json({
+    status: 'success',
+    counterOffer,
+  });
+});
 
 //Counter Offer sender(Which is offer reciever in this case) can update his offer
-exports.updateMyCounterOffer = catchAsync(async (req, res, next) => {
+exports.updateMySentCounterOffer = catchAsync(async (req, res, next) => {
   const { error } = update_counter_offer.validate(req.body);
 
   if (error) {
@@ -467,7 +520,55 @@ exports.updateMyCounterOffer = catchAsync(async (req, res, next) => {
 });
 
 //Counter Offer sender(Which is offer reciever in this case) can delete his offer
-exports.deleteMyCounterOffer = catchAsync(async (req, res, next) => {});
+exports.deleteMySentCounterOffer = catchAsync(async (req, res, next) => {
+  const { error } = offer_accept_response.validate(req.body);
+
+  if (error) {
+    handleValidatorsErrors(error, next);
+    return;
+  }
+
+  const userId = req.user.id;
+  const counterOfferId = req.params.id;
+
+  const counterOfferQuery = await client.query(
+    `SELECT
+       id,
+       status,
+       is_countered,
+       sender_id AS reciever,
+       reciever_id AS sender
+     FROM offers
+     WHERE counter_offer_id = $1 AND reciever_id = $2`,
+    [counterOfferId, userId]
+  );
+
+  if (counterOfferQuery.rows.length === 0) {
+    return next(new AppError('No counter offers found!', 404));
+  }
+
+  const counterOffer = counterOfferQuery.rows[0];
+
+  if (counterOffer.status !== 'Pending') {
+    return next(
+      new AppError("You can't update a rejected or accepted offer!", 400)
+    );
+  }
+
+  if (counterOffer.is_countered === false) {
+    return next(new AppError('The offer is not countered yet!', 400));
+  }
+
+  await client.query(
+    `UPDATE offers SET counter_offer_id = $1, is_countered = $2, project_phase = $3, WHERE counter_offer_id = $4 AND reciever_id = $5`,
+    [null, false, null, counterOfferId, userId]
+  );
+
+  res.status(200).json({
+    status: 'success',
+    message: 'You have deleted the counter offer successfully',
+  });
+});
 
 //Counter offer reciever can accept the offer
 exports.acceptCounterOffer = catchAsync(async (req, res, next) => {
@@ -611,12 +712,42 @@ exports.rejectCounterOffer = catchAsync(async (req, res, next) => {
 });
 
 //******************************FOR ADMINS ONLY***************************************** */
-exports.getAllCounterOffer = catchAsync(async (req, res, next) => {});
+exports.getAllCounterOffersForAdmin = factory.getAll('counter_offers');
 
-exports.getOneCounterOffer = catchAsync(async (req, res, next) => {});
+exports.getOneCounterOfferForAdmin = factory.getOne('counter_offers');
 
-exports.deleteOneCounterOffer = catchAsync(async (req, res, next) => {});
+exports.deleteOneCounterOfferForAdmin = factory.deleteOne('counter_offers');
 
-exports.updateOneCounterOffer = catchAsync(async (req, res, next) => {});
+exports.updateOneCounterOfferForAdmin = catchAsync(async (req, res, next) => {
+  const { error } = update_counter_offer.validate(req.body);
+  if (error) {
+    handleValidatorsErrors(error, next);
+    return;
+  }
+  const counterOfferId = req.params.id;
+
+  const { message, start_date, end_date } = req.body;
+
+  const updateCounterOfferQuery = await client.query(
+    `
+    UPDATE counter_offers
+      SET
+        message = COALESCE($1, message)
+        start_date = COALESCE($2, start_date)
+        end_date = COALESCE($3, end_date)
+      WHERE id = $4 RETURNING *
+    `,
+    [message, start_date, end_date, counterOfferId]
+  );
+
+  if (updateCounterOfferQuery.rows.length === 0) {
+    return next(new AppError('Error in updating counter offer!', 400));
+  }
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Updated successfully',
+  });
+});
 
 exports.openTicket;

@@ -27,11 +27,10 @@ exports.getAll = (tableName) =>
   catchAsync(async (req, res, next) => {
     const getAllQuery = await client.query(`SELECT * FROM ${tableName}`);
 
-    const getAll = getAllQuery.rows;
-
-    if (!getAll || getAll.length === 0) {
-      return next(new AppError(`No ${tableName} found!`, 404));
+    if (getAllQuery.rows.length === 0) {
+      return next(new AppError(`No ${tableName} found`, 404));
     }
+    const getAll = getAllQuery.rows;
 
     res.status(200).json({
       status: 'success',

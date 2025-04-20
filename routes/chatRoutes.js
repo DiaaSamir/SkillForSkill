@@ -13,19 +13,11 @@ router
     chatController.sendMessage
   );
 
-// Route to test the chat functionality by rendering the chat page
-router.route('/test-chat').get(authController.protect, (req, res) => {
-  // In real use, you might retrieve these from a database or business logic.
-  // For example:
-  const offerId = '8';
-  const senderId = '6';
-  const receiverId = '1';
-  // userId is coming from the authenticated user (req.user)
-  res.render('chatOfferTest', {
-    offerId,
-    senderId,
-    receiverId,
-    userId: req.user.id,
-  });
-});
+router
+  .route('/get-offer-messages/:id')
+  .get(
+    authController.protect,
+    authController.restrictTo('Admin'),
+    chatController.getChatOfAnOffer
+  );
 module.exports = router;

@@ -281,7 +281,7 @@ exports.counterOffer = catchAsync(async (req, res, next) => {
 
   //2)check if the offer is not pending(Accpted or Rejected) then return an error
   const offerQuery = await client.query(
-    `SELECT id, sender_id, reciever_id, status,is_countered FROM offers WHERE id = $1 AND reciever_id = $2`,
+    `SELECT id, sender_id, reciever_id, status, is_countered FROM offers WHERE id = $1 AND reciever_id = $2`,
     [offerId, userId]
   );
 
@@ -337,7 +337,7 @@ exports.counterOffer = catchAsync(async (req, res, next) => {
   });
 });
 
-//Counter Offer reciever(Which is offer sender in this case) can get his offers
+//Counter Offer reciever(Which is offer sender in this case) can get his counter offers for his offers
 exports.getMyCounterOffers = catchAsync(async (req, res, next) => {
   const userId = req.user.id;
 

@@ -9,7 +9,6 @@ const counter_offer_worker = async (data) => {
     const offerId = data.offerId;
     const recieverId = data.recieverId;
     const senderId = data.senderId;
-    const counter_offer_id = data.counterOfferId;
 
     //Get sender and reciever based on their Id
     //The process here is reversed (Reciever = Sender And Vice Versa) because this is a counter offer
@@ -54,10 +53,11 @@ const counter_offer_worker = async (data) => {
     const reciever = recieverQuery.rows[0];
 
     //Update is_countered column = true in offers table to indicate that the offer is countered
-    await client.query(
-      `UPDATE offers SET is_countered = $1, counter_offer_id = $2 WHERE id = $3`,
-      [true, counter_offer_id, offerId]
-    );
+    await client.query(`UPDATE offers SET is_countered = $1 WHERE id = $2`, [
+      true,
+      offerId,
+    ]);
+
     //Handle sending email for the user about the new offer
     await new Email(
       reciever,

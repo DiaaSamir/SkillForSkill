@@ -17,6 +17,10 @@ const {
   start_reject_counter_offer_worker,
 } = require('./workers/offers/rejectCounterOfferWorker');
 
+const { store_chat_worker } = require('./workers/chatW/chatWorker');
+const {
+  start_delete_counter_offer_worker,
+} = require('./workers/offers/deleteCounterOfferWorker');
 const http = require('http');
 const { setupSocket } = require('./utils/socket');
 
@@ -41,6 +45,8 @@ connectRabbitMQ()
     start_counter_offer_worker();
     start_accept_counter_offer_worker();
     start_reject_counter_offer_worker();
+    store_chat_worker();
+    start_delete_counter_offer_worker();
   })
   .catch((err) => {
     console.error('❌ Failed to connect RabbitMQ:', err);

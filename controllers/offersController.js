@@ -750,4 +750,4 @@ exports.updateOneCounterOfferForAdmin = catchAsync(async (req, res, next) => {
   });
 });
 
-exports.openTicket;
+

@@ -11,11 +11,11 @@ exports.getOne = (tableName) =>
       [id]
     );
 
-    const getOne = getOneQuery.rows[0];
-
-    if (!getOne || getOne.length === 0) {
+    if (getOneQuery.rows.length === 0) {
       return next(new AppError(`No ${tableName} found!`, 404));
     }
+
+    const getOne = getOneQuery.rows[0];
 
     res.status(200).json({
       status: 'success',

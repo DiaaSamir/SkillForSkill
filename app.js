@@ -8,6 +8,7 @@ const skillsRouter = require('./routes/skillsRoutes');
 const postsRouter = require('./routes/postsRoutes');
 const offersRouter = require('./routes/offersRoutes');
 const chatRouter = require('./routes/chatRoutes');
+const ticketRouter = require('./routes/ticketsRoutes');
 const app = express();
 
 app.use(express.json());
@@ -21,6 +22,7 @@ app.use('/api/skills', skillsRouter);
 app.use('/api/posts', postsRouter);
 app.use('/api/offers', offersRouter);
 app.use('/api/chat', chatRouter);
+app.use('/api/tickets', ticketRouter);
 
 app.all('*', (req, res, next) => {
   res.status(404).json({

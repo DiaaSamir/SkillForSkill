@@ -80,6 +80,7 @@ exports.getOneTicket = catchAsync(async (req, res, next) => {
     `
     SELECT
         tickets.id,
+        tickets.offer_id,
         ticket_sender.first_name AS ticket_sender_first_name,
         ticket_sender.email AS ticket_sender_email,
         tickets.message,
@@ -109,6 +110,7 @@ exports.getAllOpenTickets = catchAsync(async (req, res, next) => {
     `
     SELECT
         tickets.id,
+        tickets.offer_id,
         ticket_sender.first_name AS ticket_sender_first_name,
         ticket_sender.email AS ticket_sender_email,
         tickets.message,
@@ -138,6 +140,7 @@ exports.getAllTickets = catchAsync(async (req, res, next) => {
     `
     SELECT
         tickets.id,
+        tickets.offer_id,
         ticket_sender.first_name AS ticket_sender_first_name,
         ticket_sender.email AS ticket_sender_email,
         tickets.message,

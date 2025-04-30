@@ -43,4 +43,12 @@ router
     authController.restrictTo('Admin'),
     ticketsController.closeTicket
   );
+
+router
+  .route('/delete/:id')
+  .delete(
+    authController.protect,
+    authController.restrictTo('Admin'),
+    ticketsController.deleteTicket
+  );
 module.exports = router;

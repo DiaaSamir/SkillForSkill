@@ -46,14 +46,14 @@ exports.makeOffer = catchAsync(async (req, res, next) => {
   if (user.available === false) {
     return next(
       new AppError(
-        'You are already working on a project. Please complete it before starting a new one. ',
+        'You are already working on a project. Please complete it before starting a new one.',
         400
       )
     );
   }
 
   const postQuery = await client.query(
-    `SELECT id, user_id, skill_id,required_skill_id FROM posts WHERE id = $1`,
+    `SELECT id, user_id, skill_id, required_skill_id FROM posts WHERE id = $1`,
     [postId]
   );
 
@@ -77,19 +77,46 @@ exports.makeOffer = catchAsync(async (req, res, next) => {
     );
   }
 
-  //Check if the user have the same skill required in the post
   if (user.skill_id !== post.required_skill_id) {
     return next(
       new AppError("You don't have the skill required in the post!", 400)
     );
   }
 
-  //4) Get start_date, end_date, message From req.body
-  const { message, start_date, end_date } = req.body;
+  const { message, start_date, milestones } = req.body;
+
+  if (!milestones || !Array.isArray(milestones) || milestones.length === 0) {
+    return next(new AppError('You must provide at least one milestone', 400));
+  }
+
+  let currentDate = new Date(start_date);
+  const updatedMilestones = [];
+
+  for (const m of milestones) {
+    if (!m.duration || typeof m.duration !== 'number' || m.duration <= 0) {
+      return next(
+        new AppError('Each milestone must have a valid duration (in days)', 400)
+      );
+    }
+
+    const milestoneStart = new Date(currentDate);
+    currentDate.setDate(currentDate.getDate() + m.duration);
+    const milestoneEnd = new Date(currentDate);
+
+    updatedMilestones.push({
+      title: m.title,
+      duration: m.duration,
+      start_date: milestoneStart.toISOString(),
+      end_date: milestoneEnd.toISOString(),
+    });
+  }
+
   const parsedStartDate = new Date(start_date);
-  const parsedEndDate = new Date(end_date);
+  const parsedEndDate = new Date(currentDate); // نهاية آخر milestone
+
   await client.query(
-    `INSERT INTO offers (sender_id, reciever_id, created_at, start_date, end_date, message, post_id) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    `INSERT INTO offers (sender_id, reciever_id, created_at, start_date, end_date, message, post_id, milestones)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
     [
       userId,
       post.user_id,
@@ -98,10 +125,10 @@ exports.makeOffer = catchAsync(async (req, res, next) => {
       parsedEndDate,
       message,
       postId,
+      JSON.stringify(updatedMilestones),
     ]
   );
 
-  //Using rabbitmq to send email to the user
   await sendToQueue('offer_queue', {
     recieverId: post.user_id,
     senderFirstName: user.first_name,
@@ -125,6 +152,7 @@ exports.getMyOffers = catchAsync(async (req, res, next) => {
       offers.start_date,
       offers.end_date,
       offers.message,
+      offers.milestones,
       posts.title AS post_title,
       users.first_name AS sender_name,
       users.email AS sender_email
@@ -160,6 +188,7 @@ exports.getMyOneOffer = catchAsync(async (req, res, next) => {
       offers.created_at,
       offers.start_date,
       offers.end_date,
+      offers.milestones,
       post.title AS post_title,
       offers.message
     FROM offers
@@ -308,15 +337,15 @@ exports.counterOffer = catchAsync(async (req, res, next) => {
     return;
   }
   //4) Get start_date, end_date, message From req.body
-  const { message, start_date, end_date } = req.body;
+  const { message, start_date, end_date, milestones } = req.body;
 
   const parsedStartDate = new Date(start_date);
   const parsedEndDate = new Date(end_date);
 
   //5) Insert into counter_offers table the details of the new counter offer
   const counterOfferQuery = await client.query(
-    `INSERT INTO counter_offers (start_date, end_date, message) VALUES ($1, $2, $3) RETURNING id`,
-    [parsedStartDate, parsedEndDate, message]
+    `INSERT INTO counter_offers (start_date, end_date, message, milestones) VALUES ($1, $2, $3, $4) RETURNING id`,
+    [parsedStartDate, parsedEndDate, message, milestones]
   );
 
   const counter_offer_id = counterOfferQuery.rows[0];
@@ -347,7 +376,8 @@ exports.getMyCounterOffers = catchAsync(async (req, res, next) => {
       counter_offer_sender.first_name AS counter_offer_sender,
       counter_offers.message AS counter_offer_message,
       counter_offers.start_date AS counter_offer_start_date,
-      counter_offers.end_date AS counter_offer_end_date
+      counter_offers.end_date AS counter_offer_end_date,
+      counter_offers.milestones AS counter_offer_milestones
     FROM offers
     JOIN users AS counter_offer_sender ON offers.reciever_id =  counter_offer_sender.id
     JOIN counter_offers AS counter_offers ON offers.counter_offer_id = counter_offers.id
@@ -379,7 +409,8 @@ exports.getMyOneCounterOffer = catchAsync(async (req, res, next) => {
       counter_offer_sender.first_name AS counter_offer_sender,
       counter_offers.message AS counter_offer_message,
       counter_offers.start_date AS counter_offer_start_date,
-      counter_offers.end_date AS counter_offer_end_date
+      counter_offers.end_date AS counter_offer_end_date,
+      counter_offers.milestones AS counter_offer_milestones
     FROM offers
     JOIN users AS counter_offer_sender ON offers.reciever_id =  counter_offer_sender.id
     JOIN counter_offers AS counter_offers ON offers.counter_offer_id = counter_offers.id
@@ -409,7 +440,8 @@ exports.getMySentCounterOffers = catchAsync(async (req, res, next) => {
     SELECT
       co.start_date AS counter_offer_start_date,
       co.end_date AS counter_offer_end_date,
-      co.message AS counter_offer_message
+      co.message AS counter_offer_message,
+      co.milestones AS counter_offer_milestones
     FROM offers
     JOIN counter_offers AS co ON offers.counter_offer_id = co.id
     WHERE offers.reciever_id = $1 AND offers.is_countered = $2 AND offers.status = $3
@@ -439,7 +471,8 @@ exports.getMyOneSentCounterOffer = catchAsync(async (req, res, next) => {
     SELECT
       co.start_date AS counter_offer_start_date,
       co.end_date AS counter_offer_end_date,
-      co.message AS counter_offer_message
+      co.message AS counter_offer_message,
+      co.milestones AS counter_offer_milestones
     FROM offers
     JOIN counter_offers AS co ON offers.counter_offer_id = co.id
     WHERE offers.reciever_id = $1 AND offers.is_countered = $2 AND offers.status = $3 AND offers.counter_offer_id = $4
@@ -467,7 +500,7 @@ exports.updateMySentCounterOffer = catchAsync(async (req, res, next) => {
     handleValidatorsErrors(error, next);
   }
 
-  const { message, start_date, end_date } = req.body;
+  const { message, start_date, end_date, milestones } = req.body;
   const userId = req.user.id;
   const counterOfferId = req.params.id;
 
@@ -498,10 +531,11 @@ exports.updateMySentCounterOffer = catchAsync(async (req, res, next) => {
       SET
         message = COALESCE($1, message),
         start_date = COALESCE($2, start_date),
-        end_date = COALESCE($3, end_date)
-    WHERE id = $4 RETURNING *
+        end_date = COALESCE($3, end_date),
+        milstones = COALESCE($4, milestones)
+    WHERE id = $5 RETURNING *
     `,
-    [message, start_date, end_date, counterOfferId]
+    [message, start_date, end_date, milestones, counterOfferId]
   );
 
   if (updateCounterOfferQuery.rows.length === 0) {
@@ -749,5 +783,3 @@ exports.updateOneCounterOfferForAdmin = catchAsync(async (req, res, next) => {
     message: 'Updated successfully',
   });
 });
-
-

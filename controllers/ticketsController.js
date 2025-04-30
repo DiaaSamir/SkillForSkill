@@ -186,3 +186,5 @@ exports.closeTicket = catchAsync(async (req, res, next) => {
     message: 'You have updated the ticket successfully',
   });
 });
+
+exports.deleteTicket = factory.deleteOne('tickets');

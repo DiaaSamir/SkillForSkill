@@ -42,8 +42,14 @@ exports.deleteOne = (tableName) =>
   catchAsync(async (req, res, next) => {
     const id = req.params.id;
 
-    await client.query(`DELETE FROM ${tableName} WHERE id = $1`, [id]);
+    const deleteQuery = await client.query(
+      `DELETE FROM ${tableName} WHERE id = $1 RETURNING *`,
+      [id]
+    );
 
+    if (deleteQuery.rows.length === 0) {
+      return next(new AppError(`No ${tableName} found with this id!`, 404));
+    }
     res.status(200).json({
       status: 'success',
       message: 'Deleted successfully',

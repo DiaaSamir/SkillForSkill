@@ -5,19 +5,27 @@ const offersController = require('../controllers/offersController');
 const router = express.Router();
 
 router
-  .route('/make-offer/:id')
-  .post(
-    authController.protect,
-    authController.restrictTo('User', 'Admin'),
-    offersController.makeOffer
-  );
-
-router
   .route('/get-my-offers')
   .get(
     authController.protect,
     authController.restrictTo('User', 'Admin'),
     offersController.getMyOffers
+  );
+
+router
+  .route('/c/recieved')
+  .get(
+    authController.protect,
+    authController.restrictTo('User', 'Admin'),
+    offersController.getMyCounterOffers
+  );
+
+router
+  .route('/c/a')
+  .get(
+    authController.protect,
+    authController.restrictTo('Admin'),
+    offersController.getAllCounterOffersForAdmin
   );
 
 router
@@ -76,14 +84,6 @@ router
   );
 
 router
-  .route('/c/recieved')
-  .get(
-    authController.protect,
-    authController.restrictTo('User', 'Admin'),
-    offersController.getMyCounterOffers
-  );
-
-router
   .route('/c/recieved/:id')
   .get(
     authController.protect,
@@ -116,14 +116,6 @@ router
   );
 
 router
-  .route('/c/a')
-  .get(
-    authController.protect,
-    authController.restrictTo('Admin'),
-    offersController.getAllCounterOffersForAdmin
-  );
-
-router
   .route('/c/a/:id')
   .get(
     authController.protect,
@@ -146,4 +138,21 @@ router
     authController.restrictTo('Admin'),
     offersController.deleteOneCounterOfferForAdmin
   );
+
+router
+  .route('/make-offer/:id')
+  .post(
+    authController.protect,
+    authController.restrictTo('User', 'Admin'),
+    offersController.makeOffer
+  );
+
+router
+  .route('/update-my-offer/:id')
+  .patch(
+    authController.protect,
+    authController.restrictTo('User', 'Admin'),
+    offersController.updateMySentOffer
+  );
+
 module.exports = router;

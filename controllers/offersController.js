@@ -366,6 +366,104 @@ exports.counterOffer = catchAsync(async (req, res, next) => {
   });
 });
 
+exports.updateMySentOffer = catchAsync(async (req, res, next) => {
+  const { error } = update_counter_offer.validate(req.body);
+
+  if (error) {
+    handleValidatorsErrors(error, next);
+    return;
+  }
+
+  const { message, start_date, milestones } = req.body;
+  const userId = req.user.id;
+  const offerId = req.params.id;
+
+  const offerQuery = await client.query(
+    `SELECT id, status, is_countered FROM offers WHERE id = $1 AND sender_id = $2`,
+    [offerId, userId]
+  );
+
+  if (offerQuery.rows.length === 0) {
+    return next(new AppError('No offers found!', 404));
+  }
+
+  const offer = offerQuery.rows[0];
+
+  if (offer.status !== 'Pending') {
+    return next(
+      new AppError("You can't update a rejected or accepted offer!", 400)
+    );
+  }
+
+  let updatedMilestones = null;
+  let calculatedEndDate = null;
+
+  if (milestones) {
+    if (!Array.isArray(milestones) || milestones.length === 0) {
+      return next(new AppError('You must provide at least one milestone', 400));
+    }
+
+    for (const m of milestones) {
+      if (!m.duration || typeof m.duration !== 'number' || m.duration <= 0) {
+        return next(
+          new AppError(
+            'Each milestone must have a valid duration (in days)',
+            400
+          )
+        );
+      }
+    }
+
+    let currentDate = new Date(start_date);
+    updatedMilestones = [];
+
+    for (const m of milestones) {
+      const milestoneStart = new Date(currentDate);
+      currentDate.setDate(currentDate.getDate() + m.duration);
+      const milestoneEnd = new Date(currentDate);
+
+      updatedMilestones.push({
+        title: m.title,
+        duration: m.duration,
+        start_date: milestoneStart.toISOString(),
+        end_date: milestoneEnd.toISOString(),
+      });
+
+      calculatedEndDate = milestoneEnd.toISOString();
+    }
+  }
+
+  const updateOffer = await client.query(
+    `
+    UPDATE offers
+      SET
+        message = COALESCE($1, message),
+        start_date = COALESCE($2, start_date),
+        end_date = COALESCE($3, end_date),
+        milestones = COALESCE($4, milestones)
+    WHERE id = $5 RETURNING *
+    `,
+    [
+      message,
+      start_date,
+      calculatedEndDate, // يتم التحديث تلقائيًا
+      updatedMilestones ? JSON.stringify(updatedMilestones) : null,
+      offerId,
+    ]
+  );
+
+  if (updateOffer.rows.length === 0) {
+    return next(
+      new AppError('Error in updating your offer, please try again later!', 400)
+    );
+  }
+
+  res.status(200).json({
+    status: 'success',
+    message: 'You have updated your offer successfully',
+  });
+});
+
 //Counter Offer reciever(Which is offer sender in this case) can get his counter offers for his offers
 exports.getMyCounterOffers = catchAsync(async (req, res, next) => {
   const userId = req.user.id;
@@ -498,6 +596,7 @@ exports.updateMySentCounterOffer = catchAsync(async (req, res, next) => {
 
   if (error) {
     handleValidatorsErrors(error, next);
+    return;
   }
 
   const { message, start_date, end_date, milestones } = req.body;
@@ -525,6 +624,44 @@ exports.updateMySentCounterOffer = catchAsync(async (req, res, next) => {
     return next(new AppError('The offer is not countered yet!', 400));
   }
 
+  let updatedMilestones = null;
+  let calculatedEndDate = null;
+
+  if (milestones) {
+    if (!Array.isArray(milestones) || milestones.length === 0) {
+      return next(new AppError('You must provide at least one milestone', 400));
+    }
+
+    for (const m of milestones) {
+      if (!m.duration || typeof m.duration !== 'number' || m.duration <= 0) {
+        return next(
+          new AppError(
+            'Each milestone must have a valid duration (in days)',
+            400
+          )
+        );
+      }
+    }
+
+    let currentDate = new Date(start_date);
+    updatedMilestones = [];
+
+    for (const m of milestones) {
+      const milestoneStart = new Date(currentDate);
+      currentDate.setDate(currentDate.getDate() + m.duration);
+      const milestoneEnd = new Date(currentDate);
+
+      updatedMilestones.push({
+        title: m.title,
+        duration: m.duration,
+        start_date: milestoneStart.toISOString(),
+        end_date: milestoneEnd.toISOString(),
+      });
+
+      calculatedEndDate = milestoneEnd.toISOString();
+    }
+  }
+
   const updateCounterOfferQuery = await client.query(
     `
     UPDATE counter_offers
@@ -532,10 +669,16 @@ exports.updateMySentCounterOffer = catchAsync(async (req, res, next) => {
         message = COALESCE($1, message),
         start_date = COALESCE($2, start_date),
         end_date = COALESCE($3, end_date),
-        milstones = COALESCE($4, milestones)
+        milestones = COALESCE($4, milestones)
     WHERE id = $5 RETURNING *
     `,
-    [message, start_date, end_date, milestones, counterOfferId]
+    [
+      message,
+      start_date,
+      end_date,
+      updatedMilestones ? JSON.stringify(updatedMilestones) : null,
+      counterOfferId,
+    ]
   );
 
   if (updateCounterOfferQuery.rows.length === 0) {
@@ -550,6 +693,7 @@ exports.updateMySentCounterOffer = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: 'success',
     message: 'You have updated your counter offer successfully',
+
   });
 });
 

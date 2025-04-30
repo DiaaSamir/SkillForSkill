@@ -87,18 +87,23 @@ const update_counter_offer = Joi.object({
       'array.max': 'Maximum of 3 milestones allowed!',
       'any.required': 'Please provide milestones for your offer!',
     }),
-  start_date: Joi.string().custom((value, helpers) => {
-    const date = dayjs(value, 'YYYY-MM-DD', true); // true = strict parsing
-    if (!date.isValid()) {
-      return helpers.message(
-        'Start date must be a valid date in YYYY-MM-DD format'
-      );
-    }
-    if (date.isBefore(dayjs().startOf('day'))) {
-      return helpers.message('Start date cannot be in the past');
-    }
-    return value;
-  }),
+  start_date: Joi.string()
+    .custom((value, helpers) => {
+      const date = dayjs(value, 'YYYY-MM-DD', true); // true = strict parsing
+      if (!date.isValid()) {
+        return helpers.message(
+          'Start date must be a valid date in YYYY-MM-DD format'
+        );
+      }
+      if (date.isBefore(dayjs().startOf('day'))) {
+        return helpers.message('Start date cannot be in the past');
+      }
+      return value;
+    })
+    .required()
+    .messages({
+      'any.required': 'Start date is required!',
+    }),
 
   end_date: Joi.string().custom((value, helpers) => {
     const date = dayjs(value, 'YYYY-MM-DD', true);

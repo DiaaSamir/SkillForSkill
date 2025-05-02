@@ -224,7 +224,17 @@ exports.acceptOffer = catchAsync(async (req, res, next) => {
   const userId = req.user.id;
 
   const offerQuery = await client.query(
-    `SELECT id, sender_id, reciever_id, status, is_countered FROM offers WHERE id =$1 AND reciever_id = $2 `,
+    `SELECT
+      offers.id,
+      offers.sender_id,
+      offers.reciever_id,
+      offers.status,
+      offers.is_countered,
+      offers.milestones AS user_2_milestones,
+      posts.milestones AS user_1_milestones
+    FROM offers
+    JOIN posts ON offers.post_id = posts.id
+    WHERE offers.id =$1 AND offers.reciever_id = $2 `,
     [offerId, userId]
   );
 
@@ -253,6 +263,14 @@ exports.acceptOffer = catchAsync(async (req, res, next) => {
     offerId: offerId,
     recieverId: offer.reciever_id,
     senderId: offer.sender_id,
+  });
+
+  await sendToQueue('project_milestones_worker', {
+    offerId: offerId,
+    user_1_id: offer.reciever_id,
+    user_2_id: offer.sender_id,
+    user_1_milestones: offer.user_1_milestones,
+    user_2_milestones: offer.user_2_milestones,
   });
 
   res.status(200).json({
@@ -693,7 +711,6 @@ exports.updateMySentCounterOffer = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: 'success',
     message: 'You have updated your counter offer successfully',
-
   });
 });
 

@@ -5,7 +5,7 @@ const projectWorker = async (data) => {
   const user_2_id = data.user_2_id;
   const user_1_id = data.user_1_id;
   const offerId = data.offerId;
-
+  const deadline = data.endDate;
   try {
     //Begin transaction
     await client.query('BEGIN');
@@ -26,13 +26,21 @@ const projectWorker = async (data) => {
     const user_2_current_milestone = JSON.stringify(data.user_2_milestones[0]);
 
     const projectIdQuery = await client.query(
-      `INSERT INTO projects (user_1_id, user_2_id, user_1_project_status, user_2_project_status, started_at, offer_id)
-       VALUES ($1, $2, $3, $3, $4, $5) RETURNING id`,
-      [user_1_id, user_2_id, 'Pending', new Date(), offerId]
+      `INSERT INTO projects (user_1_id, user_2_id, user_1_project_status, user_2_project_status, accepted_at, offer_id, deadline, project_phase)
+       VALUES ($1, $2, $3, $3, $4, $5, $6, $7) RETURNING id`,
+      [
+        user_1_id,
+        user_2_id,
+        'Pending',
+        new Date(),
+        offerId,
+        deadline,
+        'In-porgress',
+      ]
     );
 
     if (projectIdQuery.rows.length === 0) {
-      throw new Error("Error in retrieving project's id");
+      throw new Error('Error in retrieving project');
     }
 
     const projectId = projectIdQuery.rows[0].id;

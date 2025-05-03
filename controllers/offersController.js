@@ -53,7 +53,7 @@ exports.makeOffer = catchAsync(async (req, res, next) => {
   }
 
   const postQuery = await client.query(
-    `SELECT id, user_id, skill_id, required_skill_id FROM posts WHERE id = $1`,
+    `SELECT id, user_id, skill_id, required_skill_id, milestones FROM posts WHERE id = $1`,
     [postId]
   );
 
@@ -89,7 +89,8 @@ exports.makeOffer = catchAsync(async (req, res, next) => {
     return next(new AppError('You must provide at least one milestone', 400));
   }
 
-  let currentDate = new Date(start_date);
+  const parsedStartDate = new Date(start_date);
+  let currentDate = new Date(parsedStartDate);
   const updatedMilestones = [];
 
   for (const m of milestones) {
@@ -111,8 +112,32 @@ exports.makeOffer = catchAsync(async (req, res, next) => {
     });
   }
 
-  const parsedStartDate = new Date(start_date);
-  const parsedEndDate = new Date(currentDate); // نهاية آخر milestone
+  const senderEndDate = new Date(currentDate);
+
+  let receiverEndDate = new Date(parsedStartDate);
+  let postMilestones = [];
+  try {
+    if (post.milestones && typeof post.milestones === 'string') {
+      postMilestones = JSON.parse(post.milestones);
+      if (!Array.isArray(postMilestones)) {
+        throw new Error();
+      }
+    }
+  } catch (err) {
+    return next(new AppError('Post milestones format is invalid', 500));
+  }
+
+  for (const m of postMilestones) {
+    if (!m.duration || typeof m.duration !== 'number' || m.duration <= 0) {
+      return next(
+        new AppError('Post milestones must have valid durations', 500)
+      );
+    }
+    receiverEndDate.setDate(receiverEndDate.getDate() + m.duration);
+  }
+
+  const finalEndDate =
+    senderEndDate > receiverEndDate ? senderEndDate : receiverEndDate;
 
   await client.query(
     `INSERT INTO offers (sender_id, reciever_id, created_at, start_date, end_date, message, post_id, milestones)
@@ -122,7 +147,7 @@ exports.makeOffer = catchAsync(async (req, res, next) => {
       post.user_id,
       new Date(),
       parsedStartDate,
-      parsedEndDate,
+      finalEndDate,
       message,
       postId,
       JSON.stringify(updatedMilestones),
@@ -148,6 +173,7 @@ exports.getMyOffers = catchAsync(async (req, res, next) => {
   const offerQuery = await client.query(
     `
     SELECT
+      offers.id,
       offers.created_at,
       offers.start_date,
       offers.end_date,
@@ -230,6 +256,7 @@ exports.acceptOffer = catchAsync(async (req, res, next) => {
       offers.reciever_id,
       offers.status,
       offers.is_countered,
+      offers.end_date,
       offers.milestones AS user_2_milestones,
       posts.milestones AS user_1_milestones
     FROM offers
@@ -259,14 +286,17 @@ exports.acceptOffer = catchAsync(async (req, res, next) => {
     );
   }
 
+  //SEND email for offer sneder and update db
   await sendToQueue('accept_offer_queue', {
     offerId: offerId,
     recieverId: offer.reciever_id,
     senderId: offer.sender_id,
   });
 
+  //Update project and project_milestones table
   await sendToQueue('project_milestones_worker', {
     offerId: offerId,
+    endDate: offer.end_date,
     user_1_id: offer.reciever_id,
     user_2_id: offer.sender_id,
     user_1_milestones: offer.user_1_milestones,

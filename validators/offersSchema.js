@@ -27,20 +27,6 @@ const make_offer_validator = Joi.object({
     .messages({
       'any.required': 'Please provide a start date for your offer!',
     }),
-
-  end_date: Joi.string().custom((value, helpers) => {
-    const date = dayjs(value, 'YYYY-MM-DD', true);
-    if (!date.isValid()) {
-      return helpers.message(
-        'End date must be a valid date in YYYY-MM-DD format'
-      );
-    }
-    if (date.isBefore(dayjs().startOf('day'))) {
-      return helpers.message('End date cannot be in the past');
-    }
-    return value;
-  }),
-
   milestones: Joi.array()
     .min(1)
     .max(3)
@@ -48,7 +34,7 @@ const make_offer_validator = Joi.object({
       Joi.object({
         title: Joi.string().required(),
         duration: Joi.number().min(1).required(),
-      })
+      }).unknown(false)
     )
     .required()
     .messages({
@@ -78,7 +64,7 @@ const update_counter_offer = Joi.object({
       Joi.object({
         title: Joi.string().required(),
         duration: Joi.number().min(1).required(),
-      })
+      }).unknown(false)
     )
     .required()
     .messages({
@@ -104,20 +90,8 @@ const update_counter_offer = Joi.object({
     .messages({
       'any.required': 'Start date is required!',
     }),
-
-  end_date: Joi.string().custom((value, helpers) => {
-    const date = dayjs(value, 'YYYY-MM-DD', true);
-    if (!date.isValid()) {
-      return helpers.message(
-        'End date must be a valid date in YYYY-MM-DD format'
-      );
-    }
-    if (date.isBefore(dayjs().startOf('day'))) {
-      return helpers.message('End date cannot be in the past');
-    }
-    return value;
-  }),
 }).unknown(false);
+
 module.exports = {
   make_offer_validator,
   offer_reject_response,

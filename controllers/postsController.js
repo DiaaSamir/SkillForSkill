@@ -37,6 +37,7 @@ exports.createPost = catchAsync(async (req, res, next) => {
       )
     );
   }
+
   const { error } = create_post.validate(req.body);
 
   if (error) {
@@ -46,7 +47,8 @@ exports.createPost = catchAsync(async (req, res, next) => {
 
   await checkIfUserVerified.isUserVerified(userId, next);
 
-  const { required_SkillName, description, title } = req.body;
+  const { required_SkillName, description, start_date, title, milestones } =
+    req.body;
 
   const userQuery = await client.query(
     `SELECT id, skill_id FROM users WHERE id = $1`,
@@ -62,12 +64,48 @@ exports.createPost = catchAsync(async (req, res, next) => {
 
   const requiredSkill = skillQuery.rows[0];
 
+  const startDate = new Date(start_date);
+  let currentDate = new Date(startDate);
+  const updatedMilestones = [];
+
+  for (const m of milestones) {
+    if (!m.duration || typeof m.duration !== 'number' || m.duration <= 0) {
+      return next(
+        new AppError('Each milestone must have a valid duration (in days)', 400)
+      );
+    }
+
+    const milestoneStart = new Date(currentDate);
+    currentDate.setDate(currentDate.getDate() + m.duration);
+    const milestoneEnd = new Date(currentDate);
+
+    updatedMilestones.push({
+      title: m.title,
+      duration: m.duration,
+      start_date: milestoneStart.toISOString(),
+      end_date: milestoneEnd.toISOString(),
+    });
+  }
+
+  const endDate = new Date(currentDate);
+
   await client.query(
-    `INSERT INTO posts (user_id, skill_id, required_skill_id, description, created_at, title) VALUES ($1, $2, $3, $4, $5, $6)`,
-    [userId, user.skill_id, requiredSkill.id, description, new Date(), title]
+    `INSERT INTO posts (user_id, skill_id, required_skill_id, description, created_at, title, milestones, start_date, end_date)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    [
+      userId,
+      user.skill_id,
+      requiredSkill.id,
+      description,
+      new Date(),
+      title,
+      JSON.stringify(updatedMilestones),
+      startDate,
+      endDate,
+    ]
   );
 
-  await client.query(`UPDATE users SET did_the_user_post =$1 WHERE id = $2`, [
+  await client.query(`UPDATE users SET did_the_user_post = $1 WHERE id = $2`, [
     true,
     userId,
   ]);

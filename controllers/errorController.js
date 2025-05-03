@@ -23,7 +23,7 @@ const handleErrors = (err) => {
     } else {
       message = 'Duplicate entry detected!';
     }
-  }else if(err.name)
+  }
 
   return new AppError(message, err.statusCode || 500);
 };

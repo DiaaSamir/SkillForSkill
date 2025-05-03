@@ -10,6 +10,7 @@ const counter_offer_worker = async (data) => {
     const recieverId = data.recieverId;
     const senderId = data.senderId;
 
+    await client.query(`BEGIN`);
     //Get sender and reciever based on their Id
     //The process here is reversed (Reciever = Sender And Vice Versa) because this is a counter offer
     const senderQuery = await client.query(
@@ -69,8 +70,11 @@ const counter_offer_worker = async (data) => {
       sender.sender_skill,
       reciever.reciever_skill
     ).sendCounterOffer();
+
+    await client.query(`COMMIT`);
   } catch (err) {
-    console.error('❌ Error in counter_offer_worker:', err.message);
+    await client.query(`ROLLBACK`);
+    console.error('❌ Error in counterOfferWorker:', err.message);
     throw err; // Let consumeQueue handle ack/nack
   }
 };

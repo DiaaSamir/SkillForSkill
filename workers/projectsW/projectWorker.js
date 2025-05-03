@@ -2,12 +2,14 @@ const { consumeQueue } = require('../../utils/rabbitmq');
 const client = require('../../db');
 
 const projectWorker = async (data) => {
-  try {
-    const user_2_id = data.user_2_id;
-    const user_1_id = data.user_1_id;
-    const offerId = data.offerId;
+  const user_2_id = data.user_2_id;
+  const user_1_id = data.user_1_id;
+  const offerId = data.offerId;
 
-    // تأكد إن البيانات اللي جاية عبارة عن arrays وفيها عناصر
+  try {
+    //Begin transaction
+    await client.query('BEGIN');
+
     if (
       !Array.isArray(data.user_1_milestones) ||
       data.user_1_milestones.length === 0 ||
@@ -17,11 +19,9 @@ const projectWorker = async (data) => {
       throw new Error('Milestones arrays are missing or empty.');
     }
 
-    // حوّل المصفوفات إلى JSON strings
     const user_1_milestones = JSON.stringify(data.user_1_milestones);
     const user_2_milestones = JSON.stringify(data.user_2_milestones);
 
-    // حوّل أول عنصر من المصفوفة إلى JSON string
     const user_1_current_milestone = JSON.stringify(data.user_1_milestones[0]);
     const user_2_current_milestone = JSON.stringify(data.user_2_milestones[0]);
 
@@ -59,9 +59,13 @@ const projectWorker = async (data) => {
         false,
       ]
     );
+    //Commit if no errors
+    await client.query('COMMIT');
   } catch (err) {
+    //Rollback if errors happen
+    await client.query('ROLLBACK');
     console.error('❌ Error in projectWorker:', err.message);
-    throw err; // Let consumeQueue handle ack/nack
+    throw err;
   }
 };
 

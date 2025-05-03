@@ -2,14 +2,23 @@ const { consumeQueue } = require('../../utils/rabbitmq');
 const client = require('../../db');
 
 const deleteCounterOffer = async (data) => {
-  const senderId = data.senderId;
-  const offerId = data.offerId;
-  const counteOfferId = data.counteOfferId;
+  try {
+    await client.query(`BEGIN`);
+    const senderId = data.senderId;
+    const offerId = data.offerId;
+    const counteOfferId = data.counteOfferId;
 
-  await client.query(
-    `UPDATE offers SET is_countered = $1, WHERE counter_offer_id = $4 AND reciever_id = $5`,
-    [null, false, null, counterOfferId, userId]
-  );
+    await client.query(
+      `UPDATE offers SET is_countered = $1, WHERE counter_offer_id = $4 AND reciever_id = $5`,
+      [null, false, null, counteOfferId, userId]
+    );
+
+    await client.query(`COMMIT`);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('❌ Error in projectWorker:', err.message);
+    throw err;
+  }
 };
 
 const start_delete_counter_offer_worker = async () => {

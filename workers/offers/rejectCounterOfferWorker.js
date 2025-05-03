@@ -63,6 +63,8 @@ const rejectCounterOffer = async (data) => {
       reciever.first_name
     ).sendRejectedCounterofferForUser();
   } catch (err) {
+    //if errors happen rollback
+    await client.query(`ROLLBACK`);
     console.error('❌ Error in rejectCounterOffer:', err.message);
     throw err; // Let consumeQueue handle ack/nack
   }

@@ -5,6 +5,8 @@ const { getIO } = require('../../utils/socket');
 
 const afterAcceptingOffer = async (data) => {
   try {
+    await client.query(`BEGIN`);
+
     const senderQuery = await client.query(
       `SELECT users.first_name, users.email, sender_skill.name AS sender_skill
        FROM users
@@ -77,7 +79,10 @@ const afterAcceptingOffer = async (data) => {
     // Check if the specific room exists
     const roomExists = io.sockets.adapter.rooms.has(roomId);
     console.log(`Does room ${roomId} exist?`, roomExists);
+
+    await client.query(`COMMIT`);
   } catch (err) {
+    await client.query(`ROLLBACK`);
     console.error('❌ Error in afterAcceptingOffer:', err.message);
     throw err; // Let consumeQueue handle ack/nack
   }

@@ -15,9 +15,10 @@ const acceptCounterOffer = async (data) => {
     let counterOffeStartDate = data.counterOfferStartDate;
     let counterOfferEndDate = data.counterOfferEndDate;
 
-    // تحويل تواريخ البداية والنهاية باستخدام dayjs لتنسيق موحد
     counterOffeStartDate = dayjs.utc(counterOffeStartDate).format('YYYY-MM-DD');
     counterOfferEndDate = dayjs.utc(counterOfferEndDate).format('YYYY-MM-DD');
+
+    await client.query(`BEGIN`);
     //Get offer details
     const offerQuery = await client.query(
       `SELECT start_date, end_date, post_id, message FROM offers WHERE id = $1`,
@@ -112,7 +113,7 @@ const acceptCounterOffer = async (data) => {
       null,
       null,
       sender.first_name,
-      reciever.first_name,
+      reciever.first_name
     ).sendAcceptedCounterOfferForUser();
 
     //Add both users for the chat room
@@ -136,7 +137,10 @@ const acceptCounterOffer = async (data) => {
     const roomExists = io.sockets.adapter.rooms.has(roomId);
 
     console.log(`Does room ${roomId} exist?`, roomExists);
+
+    await client.query(`COMMIT`);
   } catch (err) {
+    await client.query(`ROLLBACK`);
     console.error('❌ Error in acceptCounterOffer:', err.message);
     throw err; // Let consumeQueue handle ack/nack
   }

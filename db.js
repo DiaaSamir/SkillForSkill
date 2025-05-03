@@ -1,16 +1,17 @@
-const { Client } = require("pg");
-const dotenv = require("dotenv");
+const { Pool } = require('pg');
+const dotenv = require('dotenv');
 
-dotenv.config({ path: "./config.env" });
-const client = new Client({
+dotenv.config({ path: './config.env' });
+
+const client = new Pool({
   connectionString: process.env.DATABASE,
 });
 
 client
   .connect()
-  .then(() => console.log("PostgreSQL DB connection successful!"))
+  .then(() => console.log('PostgreSQL pool connection successful!'))
   .catch((err) => {
-    console.log("Failed to connect to PostgreSQL:", err);
+    console.log('Failed to connect to PostgreSQL Pool:', err);
     process.exit(1);
   });
 

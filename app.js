@@ -9,7 +9,7 @@ const postsRouter = require('./routes/postsRoutes');
 const offersRouter = require('./routes/offersRoutes');
 const chatRouter = require('./routes/chatRoutes');
 const ticketRouter = require('./routes/ticketsRoutes');
-const projectsRouter = require('./routes/projectsRoutes');
+const projectsRouter = require('./routes/projectRoutes');
 const app = express();
 
 app.use(express.json());

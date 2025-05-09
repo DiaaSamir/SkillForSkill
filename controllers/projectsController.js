@@ -37,9 +37,74 @@ const checkIfUserHasAlreadySubmittedLink = async (project, userId) => {
   }
 };
 
-exports.getMyFinishedProjects = catchAsync(async (req, res, next) => {});
+//****************************************************************************************** */
 
-exports.getMyOneFinishedProject = catchAsync(async (req, res, next) => {});
+exports.getMyFinishedProjects = catchAsync(async (req, res, next) => {
+  const userId = req.user.id;
+
+  const projectsQuery = await client.query(
+    `
+  SELECT
+    u1.user_1_id AS first_user_name,
+    u1.user_2_id AS second_user_name,
+    projects.user_1_project_link,
+    projects.user_2_project_link,
+    projects.accepted_at
+  FROM projects
+
+  JOIN users AS u1 ON projects.user_1_id = u1.id
+  JOIN users AS u2 ON projects.user_2_id = u2.id
+
+  WHERE projects.project_phase = $1 AND $2 IN (user_1_id, user_2_id)
+    `,
+    ['Handed', userId]
+  );
+
+  if (projectsQuery.rows.length === 0) {
+    return next(new AppError('No handed projects found!', 404));
+  }
+
+  const projects = projectsQuery.rows;
+
+  res.status(200).json({
+    status: 'success',
+    projects,
+  });
+});
+
+exports.getMyOneFinishedProject = catchAsync(async (req, res, next) => {
+  const userId = req.user.id;
+  const projectId = req.params.id;
+
+  const projectsQuery = await client.query(
+    `
+  SELECT
+    u1.user_1_id AS first_user_name,
+    u1.user_2_id AS second_user_name,
+    projects.user_1_project_link,
+    projects.user_2_project_link,
+    projects.accepted_at
+  FROM projects
+
+  JOIN users AS u1 ON projects.user_1_id = u1.id
+  JOIN users AS u2 ON projects.user_2_id = u2.id
+
+  WHERE projects.project_phase = $1 AND $2 IN (user_1_id, user_2_id) AND projects.id = $3
+    `,
+    ['Handed', userId, projectId]
+  );
+
+  if (projectsQuery.rows.length === 0) {
+    return next(new AppError('No handed projects found!', 404));
+  }
+
+  const projects = projectsQuery.rows;
+
+  res.status(200).json({
+    status: 'success',
+    projects,
+  });
+});
 
 exports.submitProjectLink = catchAsync(async (req, res, next) => {
   //validate req.body

@@ -17,7 +17,7 @@ router
   .get(
     authController.protect,
     authController.restrictTo('User', 'Admin'),
-    projectsController.getMyFinishedProject
+    projectsController.getMyOneFinishedProject
   );
 
 router

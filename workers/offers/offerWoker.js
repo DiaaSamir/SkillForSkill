@@ -6,7 +6,6 @@ const AppError = require('../../utils/appError');
 
 const sendEmailAfterOffer = async (data) => {
   try {
-    await client.query(`BEGIN`);
     const recieverQuery = await client.query(
       `
     SELECT
@@ -26,20 +25,21 @@ const sendEmailAfterOffer = async (data) => {
 
     const reciever = recieverQuery.rows[0];
 
-    await new Email(
-      reciever,
-      null,
-      null,
-      null,
-      data.senderFirstName,
-      reciever.first_name,
-      data.senderSkill,
-      reciever.reciever_skill
-    ).SendOfferForReciever();
-
-    await client.query(`COMMIT`);
+    try {
+      await new Email(
+        reciever,
+        null,
+        null,
+        null,
+        data.senderFirstName,
+        reciever.first_name,
+        data.senderSkill,
+        reciever.reciever_skill
+      ).SendOfferForReciever();
+    } catch (emailErr) {
+      console.error('📧 Failed to send email:', emailErr.message);
+    }
   } catch (err) {
-    await client.query('ROLLBACK');
     console.error('❌ Error in offerWorker:', err.message);
     throw err;
   }

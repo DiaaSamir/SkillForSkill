@@ -6,6 +6,7 @@ const {
   offer_reject_response,
   offer_accept_response,
   update_counter_offer,
+  make_counter_offer_validator,
 } = require('../validators/offersSchema');
 const { handleValidatorsErrors } = require('../utils/handleValidatorsErrors');
 const checkIfUserVerified = require('../utils/checkIfUserVerified');
@@ -14,6 +15,36 @@ const factory = require('./handlerFactory');
 const dayjs = require('dayjs');
 const utc = require('dayjs/plugin/utc');
 dayjs.extend(utc);
+
+function validateMilestonesEditOnlyDuration(original, incoming) {
+  // For each milestone in incoming, check if its title exists in the original milestones
+  for (const inc of incoming) {
+    const found = original.find((orig) => orig.title === inc.title);
+    if (!found) return false; // If any incoming title is not found in original, return false
+  }
+  return true; // All incoming titles are valid
+}
+
+// Function to merge durations from incoming milestones into original milestones
+function mergeMilestonesDurations(originalMilestones, incomingMilestones) {
+  // Create a Map from incoming milestones for quick lookup by title
+  const incomingMap = new Map();
+  incomingMilestones.forEach((m) => {
+    incomingMap.set(m.title, m.duration);
+  });
+
+  // Map over original milestones and replace duration if it exists in incomingMap
+  return originalMilestones.map((m) => {
+    if (incomingMap.has(m.title)) {
+      return {
+        title: m.title,
+        duration: incomingMap.get(m.title),
+      };
+    }
+    // Return original milestone if no updated duration was provided
+    return m;
+  });
+}
 
 exports.makeOffer = catchAsync(async (req, res, next) => {
   const { error } = make_offer_validator.validate(req.body);
@@ -64,7 +95,7 @@ exports.makeOffer = catchAsync(async (req, res, next) => {
   const post = postQuery.rows[0];
 
   const offersQuery = await client.query(
-    `SELECT sender_id, post_id ,status FROM offers WHERE sender_id = $1 AND post_id = $2 AND status = $3`,
+    `SELECT sender_id, post_id, status FROM offers WHERE sender_id = $1 AND post_id = $2 AND status = $3`,
     [userId, postId, 'Pending']
   );
 
@@ -85,59 +116,17 @@ exports.makeOffer = catchAsync(async (req, res, next) => {
 
   const { message, start_date, milestones } = req.body;
 
-  if (!milestones || !Array.isArray(milestones) || milestones.length === 0) {
-    return next(new AppError('You must provide at least one milestone', 400));
-  }
-
   const parsedStartDate = new Date(start_date);
-  let currentDate = new Date(parsedStartDate);
-  const updatedMilestones = [];
+  let senderDuration = 0;
 
+  // Calculate total duration from sender's milestones
   for (const m of milestones) {
-    if (!m.duration || typeof m.duration !== 'number' || m.duration <= 0) {
-      return next(
-        new AppError('Each milestone must have a valid duration (in days)', 400)
-      );
-    }
-
-    const milestoneStart = new Date(currentDate);
-    currentDate.setDate(currentDate.getDate() + m.duration);
-    const milestoneEnd = new Date(currentDate);
-
-    updatedMilestones.push({
-      title: m.title,
-      duration: m.duration,
-      start_date: milestoneStart.toISOString(),
-      end_date: milestoneEnd.toISOString(),
-    });
+    senderDuration += m.duration;
   }
 
-  const senderEndDate = new Date(currentDate);
-
-  let receiverEndDate = new Date(parsedStartDate);
-  let postMilestones = [];
-  try {
-    if (post.milestones && typeof post.milestones === 'string') {
-      postMilestones = JSON.parse(post.milestones);
-      if (!Array.isArray(postMilestones)) {
-        throw new Error();
-      }
-    }
-  } catch (err) {
-    return next(new AppError('Post milestones format is invalid', 500));
-  }
-
-  for (const m of postMilestones) {
-    if (!m.duration || typeof m.duration !== 'number' || m.duration <= 0) {
-      return next(
-        new AppError('Post milestones must have valid durations', 500)
-      );
-    }
-    receiverEndDate.setDate(receiverEndDate.getDate() + m.duration);
-  }
-
-  const finalEndDate =
-    senderEndDate > receiverEndDate ? senderEndDate : receiverEndDate;
+  // Calculate end date based on sender's milestones
+  const endDate = new Date(parsedStartDate);
+  endDate.setDate(endDate.getDate() + senderDuration);
 
   await client.query(
     `INSERT INTO offers (sender_id, reciever_id, created_at, start_date, end_date, message, post_id, milestones)
@@ -147,10 +136,10 @@ exports.makeOffer = catchAsync(async (req, res, next) => {
       post.user_id,
       new Date(),
       parsedStartDate,
-      finalEndDate,
+      endDate,
       message,
       postId,
-      JSON.stringify(updatedMilestones),
+      JSON.stringify(milestones),
     ]
   );
 
@@ -258,7 +247,8 @@ exports.acceptOffer = catchAsync(async (req, res, next) => {
       offers.is_countered,
       offers.end_date,
       offers.milestones AS user_2_milestones,
-      posts.milestones AS user_1_milestones
+      posts.milestones AS user_1_milestones,
+      posts.end_date AS user_1_deadline
     FROM offers
     JOIN posts ON offers.post_id = posts.id
     WHERE offers.id =$1 AND offers.reciever_id = $2 `,
@@ -286,6 +276,22 @@ exports.acceptOffer = catchAsync(async (req, res, next) => {
     );
   }
 
+  await client.query(`UPDATE users SET available = $1 WHERE id = $2`, [
+    false,
+    offer.sender_id,
+  ]);
+  await client.query(`UPDATE users SET available = $1 WHERE id = $2`, [
+    false,
+    offer.reciever_id,
+  ]);
+  await client.query(`UPDATE posts SET available = $1 WHERE user_id = $2`, [
+    false,
+    offer.reciever_id,
+  ]);
+
+  //To get the exact time of accepting the offer to send it to the queue
+  const acceptedAt = new Date();
+
   //SEND email for offer sneder and update db
   await sendToQueue('accept_offer_queue', {
     offerId: offerId,
@@ -294,13 +300,15 @@ exports.acceptOffer = catchAsync(async (req, res, next) => {
   });
 
   //Update project and project_milestones table
-  await sendToQueue('project_milestones_worker', {
+  await sendToQueue('project_worker', {
     offerId: offerId,
-    endDate: offer.end_date,
+    user_2_deadline: offer.end_date,
     user_1_id: offer.reciever_id,
     user_2_id: offer.sender_id,
     user_1_milestones: offer.user_1_milestones,
+    user_1_deadline: offer.user_1_deadline,
     user_2_milestones: offer.user_2_milestones,
+    acceptedAt,
   });
 
   res.status(200).json({
@@ -352,13 +360,12 @@ exports.rejectOffer = catchAsync(async (req, res, next) => {
 });
 
 exports.counterOffer = catchAsync(async (req, res, next) => {
-  //1) Get the offer using id
   const offerId = req.params.id;
   const userId = req.user.id;
 
-  //2)check if the offer is not pending(Accpted or Rejected) then return an error
+  // Query the offer to verify existence and get its milestones
   const offerQuery = await client.query(
-    `SELECT id, sender_id, reciever_id, status, is_countered FROM offers WHERE id = $1 AND reciever_id = $2`,
+    `SELECT id, sender_id, reciever_id, status, is_countered, milestones FROM offers WHERE id = $1 AND reciever_id = $2`,
     [offerId, userId]
   );
 
@@ -368,6 +375,7 @@ exports.counterOffer = catchAsync(async (req, res, next) => {
 
   const offer = offerQuery.rows[0];
 
+  // Check if offer has already been countered
   if (offer.is_countered === true) {
     return next(
       new AppError(
@@ -377,28 +385,53 @@ exports.counterOffer = catchAsync(async (req, res, next) => {
     );
   }
 
-  //3)Validate the req.body
-  const { error } = make_offer_validator.validate(req.body);
-
+  // Validate incoming request body against Joi schema
+  const { error } = make_counter_offer_validator.validate(req.body);
   if (error) {
     handleValidatorsErrors(error, next);
     return;
   }
-  //4) Get start_date, end_date, message From req.body
-  const { message, start_date, end_date, milestones } = req.body;
 
+  const { message, start_date, milestones } = req.body;
+
+  const originalMilestones = offer.milestones;
+
+  // Validate that the incoming milestones titles exist in the original milestones
+  if (!validateMilestonesEditOnlyDuration(originalMilestones, milestones)) {
+    return next(
+      new AppError(
+        'You are only allowed to edit durations of the original milestones!',
+        400
+      )
+    );
+  }
+
+  // Merge the incoming durations with the original milestones
+  const mergedMilestones = mergeMilestonesDurations(
+    originalMilestones,
+    milestones
+  );
+
+  // Calculate total duration from merged milestones durations
+  let totalDuration = 0;
+  for (const m of mergedMilestones) {
+    totalDuration += m.duration;
+  }
+
+  // Calculate the end date based on start_date and totalDuration
   const parsedStartDate = new Date(start_date);
-  const parsedEndDate = new Date(end_date);
+  const parsedEndDate = new Date(parsedStartDate);
+  parsedEndDate.setDate(parsedEndDate.getDate() + totalDuration);
 
-  //5) Insert into counter_offers table the details of the new counter offer
+  // Insert the counter offer into the database with merged milestones
   const counterOfferQuery = await client.query(
     `INSERT INTO counter_offers (start_date, end_date, message, milestones) VALUES ($1, $2, $3, $4) RETURNING id`,
-    [parsedStartDate, parsedEndDate, message, milestones]
+    [parsedStartDate, parsedEndDate, message, JSON.stringify(mergedMilestones)]
   );
 
   const counter_offer_id = counterOfferQuery.rows[0];
 
-  //6) Counter offer queue will handle the rest
+  // Send message to queue for further processing (e.g., notifications)
   await sendToQueue('counter_offer_queue', {
     recieverId: offer.reciever_id,
     senderId: offer.sender_id,
@@ -406,7 +439,7 @@ exports.counterOffer = catchAsync(async (req, res, next) => {
     counterOfferId: counter_offer_id.id,
   });
 
-  //7)Send the response for the user
+  // Send success response to client
   res.status(201).json({
     status: 'success',
     message:
@@ -806,13 +839,18 @@ exports.acceptCounterOffer = catchAsync(async (req, res, next) => {
     `
     SELECT
       offers.id AS offer_id,
+      offers.post_id AS post_id,
       offers.sender_id AS reciever,
       offers.reciever_id AS sender,
+      offers.start_date AS offer_start_date,
+      offers.end_date AS offer_end_date,
+      offers.milestones AS offer_milestones,
       offers.status,
       offers.is_countered,
       co.message AS counter_offer_message,
       co.start_date AS counter_offer_start_date,
-      co.end_date AS counter_offer_end_date
+      co.end_date AS counter_offer_end_date,
+      co.milestones AS counter_offer_milestones
     FROM offers
     
     JOIN counter_offers AS co ON offers.counter_offer_id = co.id
@@ -843,6 +881,16 @@ exports.acceptCounterOffer = catchAsync(async (req, res, next) => {
   if (counterOffer.status === 'Rejected') {
     return next(new AppError("You can't accept a rejected offer!", 400));
   }
+
+  const counterOfferStartDate =
+    counterOffer.counter_offer_start_date ?? counterOffer.offer_start_date;
+
+  const counterOfferEndDate =
+    counterOffer.counter_offer_end_date ?? counterOffer.offer_end_date;
+
+  const counterOfferMilestones =
+    counterOffer.counter_offer_milestones ?? counterOffer.offer_milestones;
+
   //4) check if anything is provided in req.body(nothing should be sent with req.body)
   const { error } = offer_accept_response.validate(req.body);
 
@@ -851,18 +899,56 @@ exports.acceptCounterOffer = catchAsync(async (req, res, next) => {
     return;
   }
 
-  console.log(
-    counterOffer.counter_offer_start_date,
-    counterOffer.counter_offer_end_date
-  );
+  try {
+    await client.query('BEGIN');
+    //update users set them to unavailable
+    await client.query(`UPDATE users SET available = $1 WHERE id IN($2, $3)`, [
+      false,
+      counterOffer.sender,
+      counterOffer.reciever,
+    ]);
+
+    //update post to unavailable
+    await client.query(
+      `UPDATE posts SET available = $1 WHERE id = $2 AND user_id = $3`,
+      [false, counterOffer.post_id, counterOffer.reciever]
+    );
+
+    //update project status in offer table to Accepted and prohect_phase to In-progress and then update the offer new details
+    await client.query(
+      `UPDATE offers SET status = $1, milestones = $2, start_date = $3, end_date= $4 WHERE id = $5`,
+      [
+        'Accepted',
+        JSON.stringify(counterOfferMilestones),
+        counterOfferStartDate,
+        counterOfferEndDate,
+        counterOffer.offer_id,
+      ]
+    );
+
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    return next(new AppError('Error in updating users and offer!', 400));
+  }
   //5)If yes, then send the rest for the worker to handle the rest
   await sendToQueue('accept_counter_offer_queue', {
+    offerId: counterOffer.offer_id,
     recieverId: counterOffer.reciever,
     senderId: counterOffer.sender,
+  });
+
+  const acceptedAt = new Date();
+
+  //Update project and project_milestones table
+  await sendToQueue('project_counter_offer_worker', {
     offerId: counterOffer.offer_id,
-    counterOfferMessage: counterOffer.counter_offer_message,
-    counterOfferStartDate: counterOffer.counter_offer_start_date,
-    counterOfferEndDate: counterOffer.counter_offer_end_date,
+    postId: counterOffer.post_id,
+    user_2_deadline: counterOfferEndDate,
+    user_1_id: counterOffer.sender,
+    user_2_id: counterOffer.reciever,
+    user_2_milestones: counterOfferMilestones,
+    acceptedAt,
   });
 
   //6)Send a response for the user

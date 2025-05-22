@@ -6,6 +6,7 @@ const { getIO } = require('../../utils/socket');
 //{reciecerId, senderId, offerId}
 const counter_offer_worker = async (data) => {
   try {
+    const counterOfferId = data.counterOfferId;
     const offerId = data.offerId;
     const recieverId = data.recieverId;
     const senderId = data.senderId;
@@ -54,24 +55,28 @@ const counter_offer_worker = async (data) => {
     const reciever = recieverQuery.rows[0];
 
     //Update is_countered column = true in offers table to indicate that the offer is countered
-    await client.query(`UPDATE offers SET is_countered = $1 WHERE id = $2`, [
-      true,
-      offerId,
-    ]);
-
-    //Handle sending email for the user about the new offer
-    await new Email(
-      reciever,
-      null,
-      null,
-      null,
-      sender.first_name,
-      reciever.first_name,
-      sender.sender_skill,
-      reciever.reciever_skill
-    ).sendCounterOffer();
+    await client.query(
+      `UPDATE offers SET is_countered = $1, counter_offer_id = $2 WHERE id = $3`,
+      [true, counterOfferId, offerId]
+    );
 
     await client.query(`COMMIT`);
+
+    //Handle sending email for the user about the new offer
+    try {
+      await new Email(
+        reciever,
+        null,
+        null,
+        null,
+        sender.first_name,
+        reciever.first_name,
+        sender.sender_skill,
+        reciever.reciever_skill
+      ).sendCounterOffer();
+    } catch (emailErr) {
+      console.error('📧 Failed to send email:', emailErr.message);
+    }
   } catch (err) {
     await client.query(`ROLLBACK`);
     console.error('❌ Error in counterOfferWorker:', err.message);

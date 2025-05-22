@@ -49,16 +49,22 @@ const afterAcceptingOffer = async (data) => {
       ['Accepted', data.offerId, data.recieverId]
     );
 
-    await new Email(
-      sender,
-      null,
-      null,
-      null,
-      sender.first_name,
-      reciever.first_name,
-      sender.sender_skill,
-      reciever.reciever_skill
-    ).sendAcceptedOfferForSender();
+    await client.query(`COMMIT`);
+
+    try {
+      await new Email(
+        sender,
+        null,
+        null,
+        null,
+        sender.first_name,
+        reciever.first_name,
+        sender.sender_skill,
+        reciever.reciever_skill
+      ).sendAcceptedOfferForSender();
+    } catch (emailErr) {
+      console.error('📧 Failed to send email:', emailErr.message);
+    }
 
     const roomId = `offer_${data.offerId}_${data.senderId}_${data.recieverId}`;
     console.log(`Room created of accept offer worker; ${roomId}`);
@@ -79,8 +85,6 @@ const afterAcceptingOffer = async (data) => {
     // Check if the specific room exists
     const roomExists = io.sockets.adapter.rooms.has(roomId);
     console.log(`Does room ${roomId} exist?`, roomExists);
-
-    await client.query(`COMMIT`);
   } catch (err) {
     await client.query(`ROLLBACK`);
     console.error('❌ Error in afterAcceptingOffer:', err.message);

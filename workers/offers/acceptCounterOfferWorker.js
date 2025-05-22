@@ -10,37 +10,6 @@ const acceptCounterOffer = async (data) => {
   try {
     const recieverId = data.recieverId;
     const senderId = data.senderId;
-    const offerId = data.offerId;
-    let counterOfferMessage = data.counterOfferMessage;
-    let counterOffeStartDate = data.counterOfferStartDate;
-    let counterOfferEndDate = data.counterOfferEndDate;
-
-    counterOffeStartDate = dayjs.utc(counterOffeStartDate).format('YYYY-MM-DD');
-    counterOfferEndDate = dayjs.utc(counterOfferEndDate).format('YYYY-MM-DD');
-
-    await client.query(`BEGIN`);
-    //Get offer details
-    const offerQuery = await client.query(
-      `SELECT start_date, end_date, post_id, message FROM offers WHERE id = $1`,
-      [offerId]
-    );
-
-    if (offerQuery.rows.length === 0) {
-      throw new Error('Error in retrieving offer!');
-    }
-
-    const offer = offerQuery.rows[0];
-
-    if (counterOfferMessage === null) {
-      counterOfferMessage = offer.message;
-    }
-    if (counterOffeStartDate === null) {
-      counterOffeStartDate = offer.start_date;
-    }
-    if (counterOfferEndDate === null) {
-      counterOfferEndDate = offer.end_date;
-    }
-
     //Get the reciever
     const recieverQuery = await client.query(
       `
@@ -79,42 +48,19 @@ const acceptCounterOffer = async (data) => {
 
     const sender = senderQuery.rows[0];
 
-    //update users set them to unavailable
-
-    await client.query(`UPDATE users SET available = $1 WHERE id IN($2, $3)`, [
-      false,
-      senderId,
-      recieverId,
-    ]);
-
-    //update post to unavailable
-    await client.query(`UPDATE posts SET available = $1 WHERE id = $2`, [
-      false,
-      offer.post_id,
-    ]);
-
-    //update project status in offer table to Accepted and prohect_phase to In-progress and then update the offer new details
-    await client.query(
-      `UPDATE offers SET status = $1, project_phase = $2, message = $3, start_date = $4, end_date= $5 WHERE id = $6`,
-      [
-        'Accepted',
-        'In-progress',
-        counterOfferMessage,
-        counterOffeStartDate,
-        counterOfferEndDate,
-        offerId,
-      ]
-    );
-
     //send email for the users
-    await new Email(
-      sender,
-      null,
-      null,
-      null,
-      sender.first_name,
-      reciever.first_name
-    ).sendAcceptedCounterOfferForUser();
+    try {
+      await new Email(
+        sender,
+        null,
+        null,
+        null,
+        sender.first_name,
+        reciever.first_name
+      ).sendAcceptedCounterOfferForUser();
+    } catch (emailErr) {
+      console.error('📧 Failed to send email:', emailErr.message);
+    }
 
     //Add both users for the chat room
     const roomId = `counter_offer_${data.offerId}_${data.senderId}_${data.recieverId}`;
@@ -137,8 +83,6 @@ const acceptCounterOffer = async (data) => {
     const roomExists = io.sockets.adapter.rooms.has(roomId);
 
     console.log(`Does room ${roomId} exist?`, roomExists);
-
-    await client.query(`COMMIT`);
   } catch (err) {
     await client.query(`ROLLBACK`);
     console.error('❌ Error in acceptCounterOffer:', err.message);

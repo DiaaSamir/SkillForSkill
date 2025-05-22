@@ -1,25 +1,19 @@
-//- Email template adapted from https://github.com/leemunroe/responsive-html-email-template
-//- Converted from HTML using https://html2pug.now.sh/
-
 doctype html
 html
   head
     meta(name='viewport', content='width=device-width')
     meta(http-equiv='Content-Type', content='text/html; charset=UTF-8')
     title= subject
-
     include _style
   body
+    span.preheader Preheader text for preview in inbox...
     table.body(role='presentation', border='0', cellpadding='0', cellspacing='0')
       tbody
         tr
           td
           td.container
             .content
-              // START CENTERED WHITE CONTAINER
               table.main(role='presentation')
-
-                // START MAIN AREA
                 tbody
                   tr
                     td.wrapper
@@ -27,17 +21,19 @@ html
                         tbody
                           tr
                             td
-                              // CONTENT
+                              .center(align="center")
+                                img(src='https://yourdomain.com/logo.png', alt='SkillForSkill', width='100', style='margin-bottom: 20px;')
+
+                              // CONTENT BLOCK TO BE FILLED
                               block content
 
-              // START FOOTER
+              // FOOTER
               .footer
                 table(role='presentation', border='0', cellpadding='0', cellspacing='0')
                   tbody
                     tr
                       td.content-block
-                        span.apple-link Natours Inc, 123 Nowhere Road, San Francisco CA 99999
+                        span.apple-link SKILLForSKILL Inc, 123 Nowhere Road, San Francisco CA 99999
                         br
-                        |  Don't like these emails? 
+                        | Don't like these emails?
                         a(href='#') Unsubscribe
-          //- td  

@@ -158,7 +158,7 @@ exports.updateMyPost = catchAsync(async (req, res, next) => {
 
   // Check if the post exists
   const postQuery = await client.query(
-    `SELECT id FROM POSTS WHERE id = $1 AND user_id = $2`,
+    `SELECT status FROM POSTS WHERE id = $1 AND user_id = $2`,
     [postId, userId]
   );
 
@@ -166,6 +166,11 @@ exports.updateMyPost = catchAsync(async (req, res, next) => {
     return next(new AppError('No posts found!', 404));
   }
 
+  const post = postQuery.rows[0];
+
+  if (post.status === false) {
+    return next(new AppError("This post isn't unavailable to update!", 404));
+  }
   // Validate the input
   const { error } = update_post.validate(req.body);
 
@@ -216,6 +221,7 @@ exports.getMypost = catchAsync(async (req, res, next) => {
     `SELECT 
       posts.description,
       posts.title,
+      posts.milestones,
       posts.created_at,
       users.first_name,
       users.last_name,
@@ -250,6 +256,7 @@ exports.getAllMyPosts = catchAsync(async (req, res, next) => {
     `SELECT 
     posts.description,
     posts.title,
+    posts.milestones,
     posts.created_at,
     users.first_name,
     users.last_name,
@@ -283,6 +290,7 @@ exports.getOnePost = catchAsync(async (req, res, next) => {
     SELECT
       posts.description,
       posts.title,
+      posts.milestones,
       posts.created_at,
       users.first_name,
       users.last_name,
@@ -315,6 +323,7 @@ exports.getAllPosts = catchAsync(async (req, res, next) => {
     SELECT
       posts.description,
       posts.title,
+      posts.milestones,
       posts.created_at,
       users.first_name,
       users.last_name,

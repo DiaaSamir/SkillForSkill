@@ -57,7 +57,7 @@ exports.getMyFinishedProjects = catchAsync(async (req, res, next) => {
 
   WHERE projects.project_phase = $1 AND $2 IN (user_1_id, user_2_id)
     `,
-    ['Handed', userId]
+    ['Completed', userId]
   );
 
   if (projectsQuery.rows.length === 0) {

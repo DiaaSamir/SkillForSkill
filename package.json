@@ -21,6 +21,7 @@
     "html-to-text": "^9.0.5",
     "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
+    "node-cron": "^4.0.7",
     "nodemailer": "^6.10.0",
     "pg": "^8.13.3",
     "pug": "^3.0.3",

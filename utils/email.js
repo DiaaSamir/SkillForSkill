@@ -116,4 +116,8 @@ module.exports = class Email {
       'Unfortunately, your counter offer has been rejected! '
     );
   }
+
+  async sendDeadlineMissed() {
+    await this.send('deadlineMissed', 'You have missed the deadline!');
+  }
 };

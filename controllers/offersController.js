@@ -527,7 +527,7 @@ exports.updateMySentOffer = catchAsync(async (req, res, next) => {
     [
       message,
       start_date,
-      calculatedEndDate, // يتم التحديث تلقائيًا
+      calculatedEndDate,
       updatedMilestones ? JSON.stringify(updatedMilestones) : null,
       offerId,
     ]
@@ -818,7 +818,7 @@ exports.deleteMySentCounterOffer = catchAsync(async (req, res, next) => {
   }
 
   await client.query(
-    `UPDATE offers SET counter_offer_id = $1, is_countered = $2, project_phase = $3, WHERE counter_offer_id = $4 AND reciever_id = $5`,
+    `UPDATE offers SET counter_offer_id = $1, is_countered = $2, project_phase = $3 WHERE counter_offer_id = $4 AND reciever_id = $5`,
     [null, false, null, counterOfferId, userId]
   );
 
@@ -1008,9 +1008,15 @@ exports.rejectCounterOffer = catchAsync(async (req, res, next) => {
       new AppError('Offer is not countered to accept or reject!', 400)
     );
   }
+
+  //Update offer status to unavailable
+  await client.query(
+    `UPDATE offers SET status = $1 WHERE id = $2 AND sender_id = $3`,
+    ['Rejected', counterOffer.id, userId]
+  );
+
   //Send values to the queue to handle sending email and update db
   await sendToQueue('reject_counter_offer_queue', {
-    offerId: counterOffer.id,
     senderId: counterOffer.sender,
     recieverId: counterOffer.reciever,
   });
@@ -1043,8 +1049,8 @@ exports.updateOneCounterOfferForAdmin = catchAsync(async (req, res, next) => {
     `
     UPDATE counter_offers
       SET
-        message = COALESCE($1, message)
-        start_date = COALESCE($2, start_date)
+        message = COALESCE($1, message),
+        start_date = COALESCE($2, start_date),
         end_date = COALESCE($3, end_date)
       WHERE id = $4 RETURNING *
     `,

@@ -1,158 +1,62 @@
 const express = require('express');
 const authController = require('../controllers/authController');
 const offersController = require('../controllers/offersController');
+const checkIfUserBanned = require('../utils/checkIfUserBanned');
 
 const router = express.Router();
 
-router
-  .route('/get-my-offers')
-  .get(
-    authController.protect,
-    authController.restrictTo('User', 'Admin'),
-    offersController.getMyOffers
-  );
+// Apply protect and restrictTo('User', 'Admin') to all routes by default
+router.use(
+  authController.protect,
+  checkIfUserBanned.handleCheckIfUserBanned,
+  authController.restrictTo('User', 'Admin')
+);
 
-router
-  .route('/c/recieved')
-  .get(
-    authController.protect,
-    authController.restrictTo('User', 'Admin'),
-    offersController.getMyCounterOffers
-  );
+router.route('/get-my-offers').get(offersController.getMyOffers);
 
-router
-  .route('/c/a')
-  .get(
-    authController.protect,
-    authController.restrictTo('Admin'),
-    offersController.getAllCounterOffersForAdmin
-  );
+router.route('/c/recieved').get(offersController.getMyCounterOffers);
 
 router
   .route('/c/sent/all-counter-offers')
-  .get(
-    authController.protect,
-    authController.restrictTo('User', 'Admin'),
-    offersController.getMySentCounterOffers
-  );
-router
-  .route('/get-offer/:id')
-  .get(
-    authController.protect,
-    authController.restrictTo('User', 'Admin'),
-    offersController.getMyOneOffer
-  );
+  .get(offersController.getMySentCounterOffers);
 
-router
-  .route('/reject-offer/:id')
-  .post(
-    authController.protect,
-    authController.restrictTo('User', 'Admin'),
-    offersController.rejectOffer
-  );
+router.route('/get-offer/:id').get(offersController.getMyOneOffer);
 
-router
-  .route('/accept-offer/:id')
-  .post(
-    authController.protect,
-    authController.restrictTo('User', 'Admin'),
-    offersController.acceptOffer
-  );
+router.route('/reject-offer/:id').post(offersController.rejectOffer);
 
-router
-  .route('/counter-offer/:id')
-  .post(
-    authController.protect,
-    authController.restrictTo('User', 'Admin'),
-    offersController.counterOffer
-  );
+router.route('/accept-offer/:id').post(offersController.acceptOffer);
 
-router
-  .route('/c/accept/:id')
-  .post(
-    authController.protect,
-    authController.restrictTo('User', 'Admin'),
-    offersController.acceptCounterOffer
-  );
+router.route('/counter-offer/:id').post(offersController.counterOffer);
 
-router
-  .route('/c/reject/:id')
-  .post(
-    authController.protect,
-    authController.restrictTo('User', 'Admin'),
-    offersController.rejectCounterOffer
-  );
+router.route('/c/accept/:id').post(offersController.acceptCounterOffer);
 
-router
-  .route('/c/recieved/:id')
-  .get(
-    authController.protect,
-    authController.restrictTo('User', 'Admin'),
-    offersController.getMyOneCounterOffer
-  );
+router.route('/c/reject/:id').post(offersController.rejectCounterOffer);
 
-router
-  .route('/c/update/:id')
-  .patch(
-    authController.protect,
-    authController.restrictTo('User', 'Admin'),
-    offersController.updateMySentCounterOffer
-  );
+router.route('/c/recieved/:id').get(offersController.getMyOneCounterOffer);
 
-router
-  .route('/c/delete/:id')
-  .delete(
-    authController.protect,
-    authController.restrictTo('User', 'Admin'),
-    offersController.deleteMySentCounterOffer
-  );
+router.route('/c/update/:id').patch(offersController.updateMySentCounterOffer);
 
-router
-  .route('/c/sent/:id')
-  .get(
-    authController.protect,
-    authController.restrictTo('User', 'Admin'),
-    offersController.getMyOneSentCounterOffer
-  );
+router.route('/c/delete/:id').delete(offersController.deleteMySentCounterOffer);
 
-router
-  .route('/c/a/:id')
-  .get(
-    authController.protect,
-    authController.restrictTo('Admin'),
-    offersController.getOneCounterOfferForAdmin
-  );
+router.route('/c/sent/:id').get(offersController.getMyOneSentCounterOffer);
+
+router.route('/make-offer/:id').post(offersController.makeOffer);
+
+router.route('/update-my-offer/:id').patch(offersController.updateMySentOffer);
+
+// Admin-only routes
+router.use('/c/a', authController.restrictTo('Admin'));
+
+router.route('/c/a').get(offersController.getAllCounterOffersForAdmin);
+
+router.route('/c/a/:id').get(offersController.getOneCounterOfferForAdmin);
 
 router
   .route('/c/a/update/:id')
-  .patch(
-    authController.protect,
-    authController.restrictTo('Admin'),
-    offersController.updateOneCounterOfferForAdmin
-  );
+  .patch(offersController.updateOneCounterOfferForAdmin);
 
 router
   .route('/c/a/delete/:id')
-  .delete(
-    authController.protect,
-    authController.restrictTo('Admin'),
-    offersController.deleteOneCounterOfferForAdmin
-  );
-
-router
-  .route('/make-offer/:id')
-  .post(
-    authController.protect,
-    authController.restrictTo('User', 'Admin'),
-    offersController.makeOffer
-  );
-
-router
-  .route('/update-my-offer/:id')
-  .patch(
-    authController.protect,
-    authController.restrictTo('User', 'Admin'),
-    offersController.updateMySentOffer
-  );
+  .delete(offersController.deleteOneCounterOfferForAdmin);
 
 module.exports = router;

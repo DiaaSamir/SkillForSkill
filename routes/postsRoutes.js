@@ -1,70 +1,33 @@
 const express = require('express');
 const authController = require('../controllers/authController');
 const postsController = require('../controllers/postsController');
+const checkIfUserBanned = require('../utils/checkIfUserBanned');
 
 const router = express.Router();
 
+// Apply protect, checkIfUserBanned, and restrictTo('Admin', 'User') to all routes by default
+router.use(
+  authController.protect,
+  checkIfUserBanned.handleCheckIfUserBanned,
+  authController.restrictTo('Admin', 'User')
+);
+
 router
   .route('/search-for-specific-skill')
-  .post(
-    authController.protect,
-    authController.restrictTo('Admin', 'User'),
-    postsController.getPostsWithSpecificSkills
-  );
-router
-  .route('/')
-  .get(
-    authController.protect,
-    authController.restrictTo('Admin', 'User'),
-    postsController.getAllPosts
-  );
+  .post(postsController.getPostsWithSpecificSkills);
 
-router
-  .route('/my-posts')
-  .get(
-    authController.protect,
-    authController.restrictTo('Admin', 'User'),
-    postsController.getAllMyPosts
-  );
+router.route('/').get(postsController.getAllPosts);
 
-router
-  .route('/add-post')
-  .post(
-    authController.protect,
-    authController.restrictTo('User', 'Admin'),
-    postsController.createPost
-  );
+router.route('/my-posts').get(postsController.getAllMyPosts);
 
-router
-  .route('/my-post/:id')
-  .get(
-    authController.protect,
-    authController.restrictTo('Admin', 'User'),
-    postsController.getMypost
-  );
+router.route('/add-post').post(postsController.createPost);
 
-router
-  .route('/delete-my-post/:id')
-  .delete(
-    authController.protect,
-    authController.restrictTo('User', 'Admin'),
-    postsController.deleteMyPost
-  );
+router.route('/my-post/:id').get(postsController.getMypost);
 
-router
-  .route('/update-my-post/:id')
-  .patch(
-    authController.protect,
-    authController.restrictTo('User', 'Admin'),
-    postsController.updateMyPost
-  );
+router.route('/delete-my-post/:id').delete(postsController.deleteMyPost);
 
-router
-  .route('/:id')
-  .get(
-    authController.protect,
-    authController.restrictTo('User', 'Admin'),
-    postsController.getOnePost
-  );
+router.route('/update-my-post/:id').patch(postsController.updateMyPost);
+
+router.route('/:id').get(postsController.getOnePost);
 
 module.exports = router;

@@ -16,10 +16,12 @@ const {
 } = require('../validators/emailVerifySchema');
 const client = require('../db');
 const Email = require('../utils/email');
-const { hashCode } = require('../utils/hashingAndReturningCodes');
-const { compareCode } = require('../utils/compareHashedCodes');
-const { hashPassword } = require('../utils/hashPasswords');
-const { compareHashedPasswords } = require('../utils/compareHashedPasswords');
+const { hashCode } = require('../utils/Auths/hashingAndReturningCodes');
+const { compareCode } = require('../utils/Auths/compareHashedCodes');
+const { hashPassword } = require('../utils/Auths/hashPasswords');
+const {
+  compareHashedPasswords,
+} = require('../utils/Auths/compareHashedPasswords');
 const dotenv = require('dotenv');
 
 dotenv.config({ path: './config.env' });

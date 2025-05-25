@@ -25,6 +25,10 @@ const {
   start_handle_after_counter_offer_project_worker,
 } = require('./workers/projectsW/handleAfterCounterOfferProjectWorker');
 
+const {
+  start_handle_missed_deadline_worker,
+} = require('./workers/projectsW/handleMissedDeadline');
+
 const http = require('http');
 const { setupSocket } = require('./utils/socket');
 
@@ -52,6 +56,7 @@ connectRabbitMQ()
     store_chat_worker();
     start_project_worker();
     start_handle_after_counter_offer_project_worker();
+    start_handle_missed_deadline_worker();
   })
   .catch((err) => {
     console.error('❌ Failed to connect RabbitMQ:', err);

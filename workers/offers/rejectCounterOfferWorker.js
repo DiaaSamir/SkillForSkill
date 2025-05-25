@@ -7,7 +7,6 @@ const rejectCounterOffer = async (data) => {
   try {
     const senderId = data.senderId;
     const recieverId = data.recieverId;
-    const offerId = data.offerId;
 
     //Get the reciever
     const recieverQuery = await client.query(
@@ -47,12 +46,6 @@ const rejectCounterOffer = async (data) => {
 
     const sender = senderQuery.rows[0];
 
-    //Update offer status to unavailable
-    await client.query(`UPDATE offers SET status = $1 WHERE id = $2`, [
-      'Rejected',
-      offerId,
-    ]);
-
     //send the email for the offer sender
     await new Email(
       sender,
@@ -63,8 +56,6 @@ const rejectCounterOffer = async (data) => {
       reciever.first_name
     ).sendRejectedCounterofferForUser();
   } catch (err) {
-    //if errors happen rollback
-    await client.query(`ROLLBACK`);
     console.error('❌ Error in rejectCounterOffer:', err.message);
     throw err; // Let consumeQueue handle ack/nack
   }

@@ -2,11 +2,13 @@ const catchAsync = require('express-async-handler');
 const AppError = require('../utils/appError');
 const client = require('../db');
 const factory = require('../controllers/handlerFactory');
-const { hashCode } = require('../utils/hashingAndReturningCodes');
-const { compareCode } = require('../utils/compareHashedCodes');
-const { hashPassword } = require('../utils/hashPasswords');
+const { hashCode } = require('../utils/Auths/hashingAndReturningCodes');
+const { compareCode } = require('../utils/Auths/compareHashedCodes');
+const { hashPassword } = require('../utils/Auths/hashPasswords');
 const { handleValidatorsErrors } = require('../utils/handleValidatorsErrors');
-const { compareHashedPasswords } = require('../utils/compareHashedPasswords');
+const {
+  compareHashedPasswords,
+} = require('../utils/Auths/compareHashedPasswords');
 const {
   email_reset_verification_request,
   email_reset_verification,
